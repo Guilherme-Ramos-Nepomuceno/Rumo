@@ -21,6 +21,7 @@ interface DashboardModalsProps {
   onAddTask: (taskData: any) => void
   onCompletionSubmit: (difficulty: any, satisfaction: number) => void
   onAddCategory: (category: any) => void
+  onDeleteSubtask?: (taskId: string, subtaskId: string) => void
 }
 
 export function DashboardModals({
@@ -37,7 +38,8 @@ export function DashboardModals({
   customCategories,
   onAddTask,
   onCompletionSubmit,
-  onAddCategory
+  onAddCategory,
+  onDeleteSubtask
 }: DashboardModalsProps) {
   return (
     <>
@@ -45,6 +47,7 @@ export function DashboardModals({
         task={selectedTask} 
         open={detailModalOpen} 
         onOpenChange={setDetailModalOpen} 
+        onDeleteSubtask={onDeleteSubtask}
         customCategories={customCategories}
       />
 

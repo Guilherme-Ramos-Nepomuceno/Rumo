@@ -2,13 +2,13 @@
 
 import { useDashboard } from "./actions/use-dashboard"
 import { DashboardHeader } from "./components/dashboard-header"
-import { ActiveTasksSection } from "./components/active-tasks-section"
 import { UpcomingTasksSection } from "./components/upcoming-tasks-section"
 import { DashboardSidebar } from "./components/dashboard-sidebar"
 import { DashboardModals } from "./components/dashboard-modals"
 import { ActivityTracker } from "@/components/activity-tracker"
 import { PerformanceChart } from "@/components/performance-chart"
 import { mockActivityData } from "@/lib/activity-data"
+import { ActiveTasksSection } from "./components/active-tasks-section"
 
 export default function Dashboard() {
   const {
@@ -41,6 +41,8 @@ export default function Dashboard() {
     handleDragReorder,
     handleAddCategory,
     handleAddTask,
+    handleAddSubtask,
+    handleDeleteSubtask,
   } = useDashboard()
 
   if (!mounted) {
@@ -54,7 +56,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[1600px] mx-auto px-4 py-8 space-y-8">
-        <DashboardHeader 
+        <DashboardHeader
           currentUser={currentUser}
           onLogout={handleLogout}
           onOpenNewTask={() => setNewTaskModalOpen(true)}
@@ -64,7 +66,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Main Content Column */}
           <div className="xl:col-span-2 space-y-8">
-            <ActiveTasksSection 
+            <ActiveTasksSection
               pausedTasks={pausedTasks}
               inProgressTasks={inProgressTasks}
               customCategories={customCategories}
@@ -77,9 +79,11 @@ export default function Dashboard() {
               onDragReorder={handleDragReorder}
               onRevertToUpcoming={handleRevertToPending}
               onDeleteTask={handleDeleteTask}
+              onAddSubtask={handleAddSubtask}
+              onDeleteSubtask={handleDeleteSubtask}
             />
 
-            <UpcomingTasksSection 
+            <UpcomingTasksSection
               tasks={upcomingTasks}
               customCategories={customCategories}
               onViewDetails={handleViewDetails}
@@ -96,7 +100,7 @@ export default function Dashboard() {
           </div>
 
           {/* Sidebar Column */}
-          <DashboardSidebar 
+          <DashboardSidebar
             tasks={tasks}
             completedTasks={completedTasks}
             customCategories={customCategories}
@@ -105,7 +109,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <DashboardModals 
+      <DashboardModals
         selectedTask={selectedTask}
         detailModalOpen={detailModalOpen}
         setDetailModalOpen={setDetailModalOpen}
@@ -120,6 +124,7 @@ export default function Dashboard() {
         onAddTask={handleAddTask}
         onCompletionSubmit={handleCompletionSubmit}
         onAddCategory={handleAddCategory}
+        onDeleteSubtask={handleDeleteSubtask}
       />
     </div>
   )
