@@ -16,6 +16,8 @@ interface ActiveTasksSectionProps {
   onDragReorder: (taskId: string, newIndex: number, column: "paused" | "in-progress") => void
   onRevertToUpcoming: (taskId: string) => void
   onDeleteTask: (taskId: string) => void
+  onAddSubtask?: (taskId: string, subtask: { title: string; estimatedTime: number }) => void
+  onDeleteSubtask?: (taskId: string, subtaskId: string) => void
 }
 
 export function ActiveTasksSection({
@@ -30,14 +32,19 @@ export function ActiveTasksSection({
   onReorder,
   onDragReorder,
   onRevertToUpcoming,
-  onDeleteTask
+  onDeleteTask,
+  onAddSubtask,
+  onDeleteSubtask,
 }: ActiveTasksSectionProps) {
   return (
     <section>
-      <h2 className="text-xl font-semibold text-foreground mb-4">Tarefas Ativas</h2>
+      <div className="flex items-center gap-2 mb-4">
+        <h2 className="text-xl font-semibold text-foreground">Objetivos Ativos</h2>
+      </div>
       <KanbanBoard
         pausedTasks={pausedTasks}
         inProgressTasks={inProgressTasks}
+        customCategories={customCategories}
         onViewDetails={onViewDetails}
         onStartTask={onStartTask}
         onPauseTask={onPauseTask}
@@ -47,7 +54,8 @@ export function ActiveTasksSection({
         onDragReorder={onDragReorder}
         onRevertToUpcoming={onRevertToUpcoming}
         onDeleteTask={onDeleteTask}
-        customCategories={customCategories}
+        onAddSubtask={onAddSubtask}
+        onDeleteSubtask={onDeleteSubtask}
       />
     </section>
   )

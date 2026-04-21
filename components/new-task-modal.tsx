@@ -109,6 +109,15 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
     onOpenChange(false)
   }
 
+  const handleNumericInput = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: number) => void) => {
+    const val = e.target.value.replace(/\D/g, "")
+    setter(val === "" ? 0 : Number(val))
+  }
+
+  const handleUncontrolledNumericInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.target.value = e.target.value.replace(/\D/g, "")
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -187,7 +196,15 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="periodicValue">A cada</Label>
-                <Input id="periodicValue" name="periodicValue" type="number" min="1" defaultValue="1" />
+                <Input 
+                  id="periodicValue" 
+                  name="periodicValue" 
+                  type="text" 
+                  inputMode="numeric"
+                  min="1" 
+                  defaultValue="1" 
+                  onChange={handleUncontrolledNumericInput}
+                />
               </div>
 
               <div className="space-y-2">
@@ -222,7 +239,16 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
 
           <div className="space-y-2">
             <Label htmlFor="satisfaction">Satisfação Esperada (1-5)</Label>
-            <Input id="satisfaction" name="satisfaction" type="number" min="1" max="5" defaultValue="3" />
+            <Input 
+              id="satisfaction" 
+              name="satisfaction" 
+              type="text" 
+              inputMode="numeric"
+              min="1" 
+              max="5" 
+              defaultValue="3" 
+              onChange={handleUncontrolledNumericInput}
+            />
           </div>
 
           {/* Tempo Estimado da Tarefa */}
@@ -235,11 +261,10 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
                 </Label>
                 <Input
                   id="estimatedHours"
-                  type="number"
-                  min="0"
-                  max="24"
+                  type="text"
+                  inputMode="numeric"
                   value={estimatedHours}
-                  onChange={(e) => setEstimatedHours(Number(e.target.value))}
+                  onChange={(e) => handleNumericInput(e, setEstimatedHours)}
                 />
               </div>
               <div className="space-y-1">
@@ -248,11 +273,10 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
                 </Label>
                 <Input
                   id="estimatedMinutes"
-                  type="number"
-                  min="0"
-                  max="59"
+                  type="text"
+                  inputMode="numeric"
                   value={estimatedMinutes}
-                  onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
+                  onChange={(e) => handleNumericInput(e, setEstimatedMinutes)}
                 />
               </div>
             </div>
@@ -284,24 +308,28 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex items-center gap-2">
                           <Input
-                            type="number"
-                            min="0"
-                            max="24"
+                            type="text"
+                            inputMode="numeric"
                             placeholder="0"
                             value={subtask.estimatedHours}
-                            onChange={(e) => updateSubtask(subtask.id, "estimatedHours", Number(e.target.value))}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, "")
+                              updateSubtask(subtask.id, "estimatedHours", val === "" ? 0 : Number(val))
+                            }}
                             className="w-full"
                           />
                           <span className="text-xs text-muted-foreground whitespace-nowrap">h</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Input
-                            type="number"
-                            min="0"
-                            max="59"
+                            type="text"
+                            inputMode="numeric"
                             placeholder="30"
                             value={subtask.estimatedMinutes}
-                            onChange={(e) => updateSubtask(subtask.id, "estimatedMinutes", Number(e.target.value))}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, "")
+                              updateSubtask(subtask.id, "estimatedMinutes", val === "" ? 0 : Number(val))
+                            }}
                             className="w-full"
                           />
                           <span className="text-xs text-muted-foreground whitespace-nowrap">min</span>

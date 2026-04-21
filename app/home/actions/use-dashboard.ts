@@ -268,6 +268,45 @@ export function useDashboard() {
     }
     setTasks((prev) => [...prev, newTask])
   }
+  const handleAddSubtask = (taskId: string, subtask: { title: string; estimatedTime: number }) => {
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id === taskId) {
+          const newSubtasks = [...(t.subtasks || []), {
+            id: crypto.randomUUID(),
+            title: subtask.title,
+            estimatedTime: subtask.estimatedTime || 1800,
+            elapsedTime: 0,
+            completed: false,
+          }]
+          return {
+            ...t,
+            subtasks: newSubtasks,
+            currentSubtaskIndex: t.currentSubtaskIndex ?? 0,
+          }
+        }
+        return t
+      })
+    )
+  }
+
+  const handleDeleteSubtask = (taskId: string, subtaskId: string) => {
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id === taskId && t.subtasks) {
+          const newSubtasks = t.subtasks.filter((s) => s.id !== subtaskId)
+          return {
+            ...t,
+            subtasks: newSubtasks,
+            currentSubtaskIndex: t.currentSubtaskIndex !== undefined && t.currentSubtaskIndex >= newSubtasks.length 
+              ? Math.max(0, newSubtasks.length - 1) 
+              : t.currentSubtaskIndex,
+          }
+        }
+        return t
+      })
+    )
+  }
 
   return {
     mounted,
@@ -300,5 +339,7 @@ export function useDashboard() {
     handleDragReorder,
     handleAddCategory,
     handleAddTask,
+    handleAddSubtask,
+    handleDeleteSubtask,
   }
 }

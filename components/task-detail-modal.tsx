@@ -12,10 +12,17 @@ interface TaskDetailModalProps {
   task: Task | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onDeleteSubtask?: (taskId: string, subtaskId: string) => void
   customCategories?: CustomCategory[]
 }
 
-export function TaskDetailModal({ task, open, onOpenChange, customCategories = [] }: TaskDetailModalProps) {
+export function TaskDetailModal({ 
+  task, 
+  open, 
+  onOpenChange, 
+  onDeleteSubtask,
+  customCategories = [] 
+}: TaskDetailModalProps) {
   if (!task) return null
 
   let config: any = categoryConfig[task.category]
@@ -44,6 +51,13 @@ export function TaskDetailModal({ task, open, onOpenChange, customCategories = [
       month: "long",
       year: "numeric",
     }).format(date)
+  }
+
+  const formatTimeShort = (seconds: number) => {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    if (h > 0) return `${h}h ${m}m`
+    return `${m}m`
   }
 
   const difficultyLabels: Record<string, string> = {
@@ -82,17 +96,66 @@ export function TaskDetailModal({ task, open, onOpenChange, customCategories = [
 
           {task.subtasks && task.subtasks.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2">Etapas</h4>
-              <ul className="space-y-2">
-                {task.subtasks.map((subtask, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-medium mt-0.5">
-                      {index + 1}
-                    </span>
-                    <span className="text-muted-foreground text-pretty">{subtask.title}</span>
-                  </li>
-                ))}
-              </ul>
+              <h4 className="text-sm font-semibold text-foreground mb-3 font-mono uppercase tracking-wider opacity-50">
+                Sequência de Etapas
+              </h4>
+              <div className="space-y-2">
+                {task.subtasks.map((subtask, index) => {
+                  const isCurrent = task.currentSubtaskIndex === index && task.status === "in-progress"
+                  const isCompleted = subtask.completed
+                  
+                  return (
+                    <div 
+                      key={subtask.id || index} 
+                      className={cn(
+                        "group flex items-center gap-4 p-3 rounded-xl border transition-all",
+                        isCompleted ? "bg-primary/5 border-primary/20 opacity-60" : 
+                        isCurrent ? "bg-muted border-primary/30" : "bg-muted/30 border-border/5"
+                      )}
+                    >
+                      <span className={cn(
+                        "flex-shrink-0 w-8 h-8 rounded-full text-xs flex items-center justify-center font-bold",
+                        isCompleted ? "bg-primary text-white" : "bg-muted-foreground/10 text-muted-foreground"
+                      )}>
+                        {isCompleted ? <Icons.Check className="w-4 h-4" /> : index + 1}
+                      </span>
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          "text-sm font-medium transition-all truncate",
+                          isCompleted ? "line-through text-muted-foreground" : "text-foreground"
+                        )}>
+                          {subtask.title}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Icons.Timer className="w-3 h-3" />
+                            <span>Est: {formatTimeShort(subtask.estimatedTime)}</span>
+                          </div>
+                          {subtask.elapsedTime > 0 && (
+                            <div className={cn(
+                              "flex items-center gap-1 text-[10px]",
+                              subtask.elapsedTime > subtask.estimatedTime ? "text-destructive font-bold" : "text-muted-foreground"
+                            )}>
+                              <Icons.Clock className="w-3 h-3" />
+                              <span>Gasto: {formatTimeShort(subtask.elapsedTime)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {!isCompleted && onDeleteSubtask && (
+                        <button
+                          onClick={() => onDeleteSubtask(task.id, subtask.id)}
+                          className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-destructive transition-all"
+                        >
+                          <Icons.Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
