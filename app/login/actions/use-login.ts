@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { api } from "../../../lib/api"
 
 interface User {
   id: string
@@ -37,18 +38,16 @@ export function useLogin() {
     setError("")
 
     if (isLogin) {
-      const users: User[] = JSON.parse(localStorage.getItem("users") || "[]")
-      const user = users.find(
-        (u) => u.email === formData.email && u.password === formData.password
-      )
-
-      if (user) {
-        localStorage.setItem("auth_token", user.id)
-        localStorage.setItem("current_user", JSON.stringify({ id: user.id, name: user.name, email: user.email }))
+      api.auth.login({
+        email: formData.email,
+        password: formData.password
+      })
+      .then(() => {
         router.push("/home")
-      } else {
-        setError("Email ou senha incorretos")
-      }
+      })
+      .catch((err) => {
+        setError(err.message || "Email ou senha incorretos")
+      })
     } else {
       if (formData.password !== formData.confirmPassword) {
         setError("As senhas não coincidem")
@@ -60,25 +59,24 @@ export function useLogin() {
         return
       }
 
-      const users: User[] = JSON.parse(localStorage.getItem("users") || "[]")
-      
-      if (users.some((u) => u.email === formData.email)) {
-        setError("Este email já está cadastrado")
-        return
-      }
-
-      const newUser: User = {
-        id: crypto.randomUUID(),
+      api.auth.register({
         name: formData.name,
         email: formData.email,
-        password: formData.password,
-      }
-
-      users.push(newUser)
-      localStorage.setItem("users", JSON.stringify(users))
-      localStorage.setItem("auth_token", newUser.id)
-      localStorage.setItem("current_user", JSON.stringify({ id: newUser.id, name: newUser.name, email: newUser.email }))
-      router.push("/home")
+        password: formData.password
+      })
+      .then(() => {
+        // Após registrar, faz login automático
+        return api.auth.login({
+          email: formData.email,
+          password: formData.password
+        })
+      })
+      .then(() => {
+        router.push("/home")
+      })
+      .catch((err) => {
+        setError(err.message || "Erro ao criar conta. Verifique sua conexão.")
+      })
     }
   }
 
