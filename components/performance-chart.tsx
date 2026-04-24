@@ -1,30 +1,82 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
-import { categoryConfig } from "@/lib/category-config"
-import { mockPerformanceData } from "@/lib/performance-data"
-import type { Category, TimeView } from "@/lib/types"
-import { GitCompare } from "lucide-react"
+import { GitCompare, CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import type { Category, CustomCategory, TimeView } from "@/lib/types"
 
-export function PerformanceChart() {
+interface PerformanceRecord {
+  date: Date
+  category?: Category | "others"
+  expectedDifficulty: number
+  actualDifficulty: number
+  expectedSatisfaction: number
+  actualSatisfaction: number
+}
+
+interface PerformanceChartProps {
+  data: PerformanceRecord[]
+  customCategories?: CustomCategory[]
+  onFilterChange?: (filters: { month?: string; categoryId?: string }) => void
+}
+
+export function PerformanceChart({ data, customCategories = [], onFilterChange }: PerformanceChartProps) {
   const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all")
   const [timeView, setTimeView] = useState<TimeView>("month")
-  const [selectedMonth, setSelectedMonth] = useState<string>("2026-01")
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7))
   const [compareMode, setCompareMode] = useState(false)
-  const [compareMonth, setCompareMonth] = useState<string>("2025-12")
+  const [compareMonth, setCompareMonth] = useState<string>("")
+
+  useEffect(() => {
+    if (onFilterChange) {
+      onFilterChange({
+        month: selectedMonth,
+        categoryId: selectedCategory === "all" ? undefined : selectedCategory
+      })
+    }
+  }, [selectedMonth, selectedCategory, onFilterChange])
 
   const chartData = useMemo(() => {
-    let filtered = mockPerformanceData
-
-    // Filter by category
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter((d) => d.category === selectedCategory)
+    let rawData = data || []
+    
+    // Group by date if we have multiple categories and "all" is selected
+    if (selectedCategory === "all") {
+      const grouped: Record<string, PerformanceRecord> = {}
+      
+      rawData.forEach(item => {
+        const dateKey = item.date.toISOString().split('T')[0]
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = { ...item, count: 1 } as any
+        } else {
+          const g = grouped[dateKey] as any
+          g.expectedDifficulty += item.expectedDifficulty
+          g.actualDifficulty += item.actualDifficulty
+          g.expectedSatisfaction += item.expectedSatisfaction
+          g.actualSatisfaction += item.actualSatisfaction
+          g.count++
+        }
+      })
+      
+      return Object.values(grouped).map((g: any) => ({
+        ...g,
+        expectedDifficulty: g.expectedDifficulty / g.count,
+        actualDifficulty: g.actualDifficulty / g.count,
+        expectedSatisfaction: g.expectedSatisfaction / g.count,
+        actualSatisfaction: g.actualSatisfaction / g.count
+      })).sort((a, b) => a.date.getTime() - b.date.getTime())
     }
+
+    // Filter by category if not "all"
+    let filtered = rawData.filter((item) => item.category === selectedCategory)
 
     const getDateRange = (monthStr: string) => {
       const start = new Date(monthStr + "-01")
@@ -141,8 +193,8 @@ export function PerformanceChart() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  {Object.entries(categoryConfig).map(([key, config]) => (
-                    <SelectItem key={key} value={key}>
+                  {customCategories.map((config) => (
+                    <SelectItem key={config.id} value={config.id}>
                       {config.label}
                     </SelectItem>
                   ))}
@@ -166,18 +218,29 @@ export function PerformanceChart() {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Mês</Label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2025-12">Dez 2025</SelectItem>
-                  <SelectItem value="2026-01">Jan 2026</SelectItem>
-                  <SelectItem value="2026-02">Fev 2026</SelectItem>
-                  <SelectItem value="2026-03">Mar 2026</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Data de Referência</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-[160px] justify-start text-left font-normal",
+                      !selectedMonth && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedMonth ? format(new Date(selectedMonth + "-01"), "MMM yyyy", { locale: ptBR }) : <span>Selecione</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={new Date(selectedMonth + "-01")}
+                    onSelect={(date) => date && setSelectedMonth(format(date, "yyyy-MM"))}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-1">
@@ -196,17 +259,28 @@ export function PerformanceChart() {
             {compareMode && (
               <div className="space-y-1">
                 <Label className="text-xs">Comparar com</Label>
-                <Select value={compareMonth} onValueChange={setCompareMonth}>
-                  <SelectTrigger className="w-[130px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="2025-12">Dez 2025</SelectItem>
-                    <SelectItem value="2026-01">Jan 2026</SelectItem>
-                    <SelectItem value="2026-02">Fev 2026</SelectItem>
-                    <SelectItem value="2026-03">Mar 2026</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-[160px] justify-start text-left font-normal",
+                        !compareMonth && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {compareMonth ? format(new Date(compareMonth + "-01"), "MMM yyyy", { locale: ptBR }) : <span>Selecione</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={compareMonth ? new Date(compareMonth + "-01") : undefined}
+                      onSelect={(date) => date && setCompareMonth(format(date, "yyyy-MM"))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </div>
