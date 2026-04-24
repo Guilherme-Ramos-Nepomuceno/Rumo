@@ -4,9 +4,8 @@ import { useState, useMemo, useCallback, memo, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { categoryConfig } from "@/lib/category-config"
 import { getActivityCount, getContributingCategories } from "@/lib/activity-data"
-import type { ActivityRecord, Category, TimeView } from "@/lib/types"
+import type { ActivityRecord, Category, CustomCategory, TimeView } from "@/lib/types"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -20,9 +19,11 @@ const WEEKDAYS_SHORT = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
 
 interface ActivityTrackerProps {
   data: ActivityRecord[]
+  customCategories?: CustomCategory[]
+  onFilterChange?: (filters: { startDate?: string; endDate?: string; categoryId?: string }) => void
 }
 
-function ActivityTrackerComponent({ data }: ActivityTrackerProps) {
+function ActivityTrackerComponent({ data, customCategories = [], onFilterChange }: ActivityTrackerProps) {
   const [timeView, setTimeView] = useState<TimeView>("week")
   const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all")
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date())
@@ -32,6 +33,37 @@ function ActivityTrackerComponent({ data }: ActivityTrackerProps) {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (mounted && onFilterChange) {
+      let startDate = new Date(currentDate)
+      const endDate = new Date(currentDate).toISOString().split("T")[0]
+
+      switch (timeView) {
+        case "day":
+          startDate.setDate(startDate.getDate() - 1)
+          break
+        case "week":
+          startDate.setDate(startDate.getDate() - 7)
+          break
+        case "month":
+          startDate.setMonth(startDate.getMonth() - 1)
+          break
+        case "semester":
+          startDate.setMonth(startDate.getMonth() - 6)
+          break
+        case "year":
+          startDate.setFullYear(startDate.getFullYear() - 1)
+          break
+      }
+
+      onFilterChange({
+        startDate: startDate.toISOString().split("T")[0],
+        endDate: endDate,
+        categoryId: selectedCategory === "all" ? undefined : selectedCategory
+      })
+    }
+  }, [timeView, selectedCategory, currentDate, mounted, onFilterChange])
 
   const { blocks, maxCount } = useMemo(() => {
     const blocks: { date: Date; count: number; label: string; categories?: Category[] }[] = []
@@ -51,7 +83,7 @@ function ActivityTrackerComponent({ data }: ActivityTrackerProps) {
             date: blockDate,
             count,
             label: `${hour}h`,
-            categories: getContributingCategories(blockDate),
+            categories: getContributingCategories(data, blockDate),
           })
         }
         break
@@ -68,7 +100,7 @@ function ActivityTrackerComponent({ data }: ActivityTrackerProps) {
             date: blockDate,
             count,
             label: WEEKDAYS_SHORT[blockDate.getDay()],
-            categories: getContributingCategories(blockDate),
+            categories: getContributingCategories(data, blockDate),
           })
         }
         break
@@ -87,7 +119,7 @@ function ActivityTrackerComponent({ data }: ActivityTrackerProps) {
             date: blockDate,
             count,
             label: `${day}`,
-            categories: getContributingCategories(blockDate),
+            categories: getContributingCategories(data, blockDate),
           })
         }
         break
@@ -111,7 +143,7 @@ function ActivityTrackerComponent({ data }: ActivityTrackerProps) {
             date: blockDate,
             count: weekCount,
             label: `S${24 - i}`,
-            categories: getContributingCategories(blockDate), // First day of week approximation
+            categories: getContributingCategories(data, blockDate), // First day of week approximation
           })
         }
         break
@@ -135,7 +167,7 @@ function ActivityTrackerComponent({ data }: ActivityTrackerProps) {
             date: blockDate,
             count: weekCount,
             label: `S${52 - i}`,
-            categories: getContributingCategories(blockDate), // First day of week approximation
+            categories: getContributingCategories(data, blockDate), // First day of week approximation
           })
         }
         break
@@ -145,20 +177,20 @@ function ActivityTrackerComponent({ data }: ActivityTrackerProps) {
     return { blocks, maxCount }
   }, [timeView, selectedCategory, currentDate, data])
 
+  const getCategoryColor = (catId?: string) => {
+    const id = catId || selectedCategory
+    if (id === "all") return "var(--primary)"
+    
+    const customMatch = customCategories.find(c => c.id === id)
+    if (customMatch) return customMatch.color
+    
+    return `var(--category-${id})`
+  }
+
   const getBlockStyle = (count: number, blockCategories?: Category[]) => {
     if (count === 0) return { backgroundColor: "var(--muted)" }
 
-    const getCategoryColor = () => {
-      if (selectedCategory === "all") {
-        if (blockCategories && blockCategories.length === 1) {
-          return `var(--category-${blockCategories[0]})`
-        }
-        return "var(--primary)"
-      }
-      return `var(--category-${selectedCategory})`
-    }
-
-    const baseColor = getCategoryColor()
+    const baseColor = getCategoryColor(blockCategories && blockCategories.length === 1 ? blockCategories[0] : undefined)
 
     if (timeView === "day") {
       return { backgroundColor: baseColor }
@@ -290,8 +322,8 @@ function ActivityTrackerComponent({ data }: ActivityTrackerProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas Categorias</SelectItem>
-                {Object.entries(categoryConfig).map(([key, config]) => (
-                  <SelectItem key={key} value={key}>
+                {customCategories.map((config) => (
+                  <SelectItem key={config.id} value={config.id}>
                     {config.label}
                   </SelectItem>
                 ))}
@@ -361,32 +393,28 @@ function ActivityTrackerComponent({ data }: ActivityTrackerProps) {
               <div
                 className="w-5 h-5 rounded"
                 style={{
-                  backgroundColor:
-                    selectedCategory !== "all" ? `var(--category-${selectedCategory})` : "var(--primary)",
+                  backgroundColor: getCategoryColor(),
                   opacity: 0.2,
                 }}
               />
               <div
                 className="w-5 h-5 rounded"
                 style={{
-                  backgroundColor:
-                    selectedCategory !== "all" ? `var(--category-${selectedCategory})` : "var(--primary)",
+                  backgroundColor: getCategoryColor(),
                   opacity: 0.4,
                 }}
               />
               <div
                 className="w-5 h-5 rounded"
                 style={{
-                  backgroundColor:
-                    selectedCategory !== "all" ? `var(--category-${selectedCategory})` : "var(--primary)",
+                  backgroundColor: getCategoryColor(),
                   opacity: 0.7,
                 }}
               />
               <div
                 className="w-5 h-5 rounded"
                 style={{
-                  backgroundColor:
-                    selectedCategory !== "all" ? `var(--category-${selectedCategory})` : "var(--primary)",
+                  backgroundColor: getCategoryColor(),
                   opacity: 1,
                 }}
               />

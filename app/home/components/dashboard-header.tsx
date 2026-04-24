@@ -1,18 +1,20 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Plus, Settings, LogOut, User, Target } from "lucide-react"
+import { Plus, Settings, LogOut, User, Target, Trash2 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface DashboardHeaderProps {
   currentUser: { name: string; email: string } | null
+  activityCount: number
   onLogout: () => void
   onOpenNewTask: () => void
   onOpenCategories: () => void
+  onClearAll: () => void
 }
 
-export function DashboardHeader({ currentUser, onLogout, onOpenNewTask, onOpenCategories }: DashboardHeaderProps) {
+export function DashboardHeader({ currentUser, activityCount, onLogout, onOpenNewTask, onOpenCategories, onClearAll }: DashboardHeaderProps) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div className="flex items-center gap-3">
@@ -25,6 +27,12 @@ export function DashboardHeader({ currentUser, onLogout, onOpenNewTask, onOpenCa
               <Target className="w-5 h-5 text-primary-foreground" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Rumo</h1>
+            {activityCount > 0 && (
+              <div className="ml-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20 flex items-center gap-1">
+                <Target className="w-3 h-3" />
+                {activityCount}
+              </div>
+            )}
           </div>
           <p className="text-muted-foreground text-sm mt-1">
             {currentUser ? `Olá, ${currentUser.name.split(" ")[0]}! ` : ""}
@@ -61,6 +69,10 @@ export function DashboardHeader({ currentUser, onLogout, onOpenNewTask, onOpenCa
               <p className="text-xs text-muted-foreground">{currentUser?.email}</p>
             </div>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onClearAll} className="text-amber-500 focus:text-amber-500">
+              <Trash2 className="w-4 h-4 mr-2" />
+              Limpar Todos os Dados
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={onLogout} className="text-destructive focus:text-destructive">
               <LogOut className="w-4 h-4 mr-2" />
               Sair

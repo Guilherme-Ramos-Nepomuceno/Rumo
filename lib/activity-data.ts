@@ -39,7 +39,7 @@ function generateActivityData(): ActivityRecord[] {
 }
 
 // Generate data once and cache it
-export const mockActivityData = generateActivityData()
+export const mockActivityData: ActivityRecord[] = []
 
 // Create a lookup map for faster access
 const activityLookup = new Map<string, Map<Category | "all", number>>()
@@ -63,31 +63,23 @@ mockActivityData.forEach((record) => {
   dateMap.set("all", currentAllCount + record.count)
 })
 
-// Optimized helper function using lookup map
+// Optimized helper function using provided data
 export function getActivityCount(data: ActivityRecord[], date: Date, category?: Category): number {
-  const dateKey = date.toDateString()
-  const dateMap = activityLookup.get(dateKey)
+  if (!data) return 0
+  const dateStr = date.toDateString()
   
-  if (!dateMap) return 0
-  
-  if (category) {
-    return dateMap.get(category) || 0
-  }
-  
-  return dateMap.get("all") || 0
+  return data
+    .filter(record => record.date.toDateString() === dateStr && (!category || record.category === category))
+    .reduce((acc, record) => acc + record.count, 0)
 }
 
-export function getContributingCategories(date: Date): Category[] {
-  const dateKey = date.toDateString()
-  const dateMap = activityLookup.get(dateKey)
+export function getContributingCategories(data: ActivityRecord[], date: Date): Category[] {
+  if (!data) return []
+  const dateStr = date.toDateString()
   
-  if (!dateMap) return []
-  
-  const categories: Category[] = []
-  dateMap.forEach((count, key) => {
-    if (key !== "all" && count > 0) {
-      categories.push(key as Category)
-    }
-  })
-  return categories
+  const categories = data
+    .filter(record => record.date.toDateString() === dateStr && record.category && record.category !== 'others')
+    .map(record => record.category as Category)
+    
+  return Array.from(new Set(categories))
 }
