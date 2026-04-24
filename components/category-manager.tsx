@@ -16,6 +16,7 @@ interface CategoryManagerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAddCategory: (category: { label: string; color: string; icon: string }) => void
+  showWarning?: boolean
 }
 
 const availableColors = [
@@ -24,7 +25,7 @@ const availableColors = [
   { name: "Verde", value: "rgb(34, 197, 94)" },
 ]
 
-export function CategoryManager({ open, onOpenChange, onAddCategory }: CategoryManagerProps) {
+export function CategoryManager({ open, onOpenChange, onAddCategory, showWarning }: CategoryManagerProps) {
   const [label, setLabel] = useState("")
   const [selectedColor, setSelectedColor] = useState(availableColors[0].value)
   const [icon, setIcon] = useState("Circle")
@@ -54,6 +55,20 @@ export function CategoryManager({ open, onOpenChange, onAddCategory }: CategoryM
           <DialogTitle>Nova Categoria</DialogTitle>
           <DialogDescription>Adicione uma nova categoria de atividade para rastrear seus objetivos</DialogDescription>
         </DialogHeader>
+
+        {showWarning && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex items-start gap-3">
+            <div className="mt-0.5">
+              <Icons.AlertTriangle className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-500">Categorias Necessárias</p>
+              <p className="text-xs text-amber-500/80 leading-relaxed">
+                Você ainda não tem categorias criadas. Para organizar suas tarefas e ver estatísticas personalizadas, comece criando sua primeira categoria abaixo.
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">

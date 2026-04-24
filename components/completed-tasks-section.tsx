@@ -3,7 +3,6 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Calendar, Clock, Star, RotateCcw } from "lucide-react"
-import { categoryConfig } from "@/lib/category-config"
 import type { Task, CustomCategory } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import * as Icons from "lucide-react"
@@ -46,21 +45,25 @@ export function CompletedTasksSection({ tasks, onRepeat, customCategories = [] }
   return (
     <div className="space-y-3">
       {tasks.map((task) => {
-        let config: any = categoryConfig[task.category]
+        // Prioritize custom categories from backend
+        const customMatch = customCategories.find((c) => c.id === task.category)
+        let config: any = null
         let isCustom = false
       
-        if (!config) {
-          const customMatch = customCategories.find((c) => c.id === task.category)
-          if (customMatch) {
-            isCustom = true
-            config = {
-              id: customMatch.id,
-              label: customMatch.label,
-              icon: Icons[customMatch.icon as keyof typeof Icons] || Icons.Circle,
-              color: customMatch.color,
-            }
-          } else {
-            config = categoryConfig["others"]
+        if (customMatch) {
+          isCustom = true
+          config = {
+            id: customMatch.id,
+            label: customMatch.label,
+            icon: Icons[customMatch.icon as keyof typeof Icons] || Icons.Circle,
+            color: customMatch.color,
+          }
+        } else {
+          // Fallback for system categories or others
+          config = {
+            label: task.category || "Outros",
+            icon: Icons.Circle,
+            color: "#94a3b8", // slate-400
           }
         }
       
