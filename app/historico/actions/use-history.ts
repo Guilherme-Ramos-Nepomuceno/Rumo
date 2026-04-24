@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { mockCompletedTasks } from "@/lib/mock-data"
 import type { Task, Category } from "@/lib/types"
 
 const MONTHS_LONG = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
@@ -39,7 +38,7 @@ export function useHistory() {
       }))
       setCompletedTasks(parsed)
     } else {
-      setCompletedTasks(mockCompletedTasks)
+      setCompletedTasks([])
     }
   }, [router])
 
