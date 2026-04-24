@@ -16,6 +16,8 @@ interface DashboardModalsProps {
   setCompletionModalOpen: (open: boolean) => void
   categoryManagerOpen: boolean
   setCategoryManagerOpen: (open: boolean) => void
+  showCategoryWarning?: boolean
+  setShowCategoryWarning?: (show: boolean) => void
   taskToComplete: Task | null
   customCategories: CustomCategory[]
   onAddTask: (taskData: any) => void
@@ -34,6 +36,8 @@ export function DashboardModals({
   setCompletionModalOpen,
   categoryManagerOpen,
   setCategoryManagerOpen,
+  showCategoryWarning,
+  setShowCategoryWarning,
   taskToComplete,
   customCategories,
   onAddTask,
@@ -67,8 +71,12 @@ export function DashboardModals({
 
       <CategoryManager
         open={categoryManagerOpen}
-        onOpenChange={setCategoryManagerOpen}
+        onOpenChange={(open) => {
+          setCategoryManagerOpen(open)
+          if (!open && setShowCategoryWarning) setShowCategoryWarning(false)
+        }}
         onAddCategory={onAddCategory}
+        showWarning={showCategoryWarning}
       />
     </>
   )

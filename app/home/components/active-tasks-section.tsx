@@ -41,22 +41,28 @@ export function ActiveTasksSection({
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-xl font-semibold text-foreground">Objetivos Ativos</h2>
       </div>
-      <KanbanBoard
-        pausedTasks={pausedTasks}
-        inProgressTasks={inProgressTasks}
-        customCategories={customCategories}
-        onViewDetails={onViewDetails}
-        onStartTask={onStartTask}
-        onPauseTask={onPauseTask}
-        onCompleteTask={onCompleteTask}
-        onNextStep={onNextStep}
-        onReorder={onReorder}
-        onDragReorder={onDragReorder}
-        onRevertToUpcoming={onRevertToUpcoming}
-        onDeleteTask={onDeleteTask}
-        onAddSubtask={onAddSubtask}
-        onDeleteSubtask={onDeleteSubtask}
-      />
+      {(pausedTasks.length > 0 || inProgressTasks.length > 0) ? (
+        <KanbanBoard
+          pausedTasks={pausedTasks}
+          inProgressTasks={inProgressTasks}
+          customCategories={customCategories}
+          onViewDetails={onViewDetails}
+          onStartTask={onStartTask}
+          onPauseTask={onPauseTask}
+          onCompleteTask={onCompleteTask}
+          onNextStep={onNextStep}
+          onReorder={onReorder}
+          onDragReorder={onDragReorder}
+          onRevertToUpcoming={onRevertToUpcoming}
+          onDeleteTask={onDeleteTask}
+          onAddSubtask={onAddSubtask}
+          onDeleteSubtask={onDeleteSubtask}
+        />
+      ) : (
+        <div className="p-12 text-center border-2 border-dashed border-border rounded-2xl bg-muted/5">
+          <p className="text-muted-foreground">Nenhum objetivo em andamento ou pausado no momento.</p>
+        </div>
+      )}
     </section>
   )
 }

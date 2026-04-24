@@ -7,7 +7,6 @@ import { DashboardSidebar } from "./components/dashboard-sidebar"
 import { DashboardModals } from "./components/dashboard-modals"
 import { ActivityTracker } from "@/components/activity-tracker"
 import { PerformanceChart } from "@/components/performance-chart"
-import { mockActivityData } from "@/lib/activity-data"
 import { ActiveTasksSection } from "./components/active-tasks-section"
 
 export default function Dashboard() {
@@ -16,16 +15,24 @@ export default function Dashboard() {
     tasks,
     completedTasks,
     currentUser,
+    activityData,
+    performanceData,
+    activityCount,
+    fetchActivityData,
+    fetchPerformanceData,
     customCategories,
     selectedTask,
     detailModalOpen,
     setDetailModalOpen,
     newTaskModalOpen,
     setNewTaskModalOpen,
+    handleOpenNewTaskModal,
     completionModalOpen,
     setCompletionModalOpen,
     categoryManagerOpen,
     setCategoryManagerOpen,
+    showCategoryWarning,
+    setShowCategoryWarning,
     taskToComplete,
     handleLogout,
     handleViewDetails,
@@ -43,6 +50,7 @@ export default function Dashboard() {
     handleAddTask,
     handleAddSubtask,
     handleDeleteSubtask,
+    handleClearAll,
   } = useDashboard()
 
   if (!mounted) {
@@ -58,9 +66,11 @@ export default function Dashboard() {
       <div className="max-w-[1600px] mx-auto px-4 py-8 space-y-8">
         <DashboardHeader
           currentUser={currentUser}
+          activityCount={activityCount}
           onLogout={handleLogout}
-          onOpenNewTask={() => setNewTaskModalOpen(true)}
+          onOpenNewTask={handleOpenNewTaskModal}
           onOpenCategories={() => setCategoryManagerOpen(true)}
+          onClearAll={handleClearAll}
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -91,11 +101,19 @@ export default function Dashboard() {
             />
 
             <section>
-              <ActivityTracker data={mockActivityData} />
+              <ActivityTracker 
+                data={activityData} 
+                customCategories={customCategories}
+                onFilterChange={fetchActivityData}
+              />
             </section>
 
             <section>
-              <PerformanceChart />
+              <PerformanceChart 
+                data={performanceData} 
+                customCategories={customCategories}
+                onFilterChange={fetchPerformanceData}
+              />
             </section>
           </div>
 
@@ -119,6 +137,8 @@ export default function Dashboard() {
         setCompletionModalOpen={setCompletionModalOpen}
         categoryManagerOpen={categoryManagerOpen}
         setCategoryManagerOpen={setCategoryManagerOpen}
+        showCategoryWarning={showCategoryWarning}
+        setShowCategoryWarning={setShowCategoryWarning}
         taskToComplete={taskToComplete}
         customCategories={customCategories}
         onAddTask={handleAddTask}

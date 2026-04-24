@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { categoryConfig } from "@/lib/category-config"
 import type { DailySummary, CustomCategory } from "@/lib/types"
 import * as Icons from "lucide-react"
 import { ChevronDown, ChevronUp } from "lucide-react"
@@ -33,7 +32,7 @@ export function SummarySection({ dailySummary, weeklySummary, customCategories =
       : 0
 
   const allCategoryIds = Array.from(new Set([
-    ...Object.keys(categoryConfig),
+    ...Object.keys(dailySummary.byCategory),
     ...customCategories.map(c => c.id)
   ]))
 
@@ -205,21 +204,36 @@ export function SummarySection({ dailySummary, weeklySummary, customCategories =
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function resolveConfig(category: string, customCategories: CustomCategory[]) {
-  let config: any = categoryConfig[category as keyof typeof categoryConfig]
+  const customMatch = customCategories.find((c) => c.id === category)
+  let config: any = null
   let isCustom = false
 
-  if (!config) {
-    const customMatch = customCategories.find((c) => c.id === category)
-    if (customMatch) {
-      isCustom = true
-      config = {
-        id: customMatch.id,
-        label: customMatch.label,
-        icon: Icons[customMatch.icon as keyof typeof Icons] || Icons.Circle,
-        color: customMatch.color,
-      }
-    } else {
-      config = categoryConfig["others"]
+  if (customMatch) {
+    isCustom = true
+    config = {
+      id: customMatch.id,
+      label: customMatch.label,
+      icon: (Icons as any)[customMatch.icon] || Icons.Circle,
+      color: customMatch.color,
+    }
+  } else {
+    // Legacy support for system category keys
+    const legacyLabels: Record<string, string> = {
+      study: "Estudo",
+      work: "Trabalho",
+      training: "Treino",
+      leisure: "Lazer",
+      water: "Água",
+      food: "Alimentação",
+      home: "Casa",
+      health: "Saúde",
+      others: "Outros",
+    }
+
+    config = {
+      label: legacyLabels[category] || category || "Outros",
+      icon: Icons.Circle,
+      color: "#94a3b8",
     }
   }
 
