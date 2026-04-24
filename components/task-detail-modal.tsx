@@ -1,9 +1,8 @@
 "use client"
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Clock, Repeat, Star } from "lucide-react"
-import { categoryConfig } from "@/lib/category-config"
 import type { Task, CustomCategory } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import * as Icons from "lucide-react"
@@ -25,21 +24,34 @@ export function TaskDetailModal({
 }: TaskDetailModalProps) {
   if (!task) return null
 
-  let config: any = categoryConfig[task.category]
+  // Resolve category ID and label
+  const categoryId = typeof task.category === "object" && task.category !== null 
+    ? (task.category as any).id 
+    : task.category
+  
+  const categoryLabel = typeof task.category === "object" && task.category !== null
+    ? (task.category as any).label
+    : task.category
+
+  // Prioritize custom categories from backend
+  const customMatch = customCategories.find((c) => c.id === categoryId)
+  let config: any = null
   let isCustom = false
 
-  if (!config) {
-    const customMatch = customCategories.find((c) => c.id === task.category)
-    if (customMatch) {
-      isCustom = true
-      config = {
-        id: customMatch.id,
-        label: customMatch.label,
-        icon: Icons[customMatch.icon as keyof typeof Icons] || Icons.Circle,
-        color: customMatch.color,
-      }
-    } else {
-      config = categoryConfig["others"] || { label: task.category, icon: Icons.Circle, color: "bg-gray-100 text-gray-700" }
+  if (customMatch) {
+    isCustom = true
+    config = {
+      id: customMatch.id,
+      label: customMatch.label,
+      icon: Icons[customMatch.icon as keyof typeof Icons] || Icons.Circle,
+      color: customMatch.color,
+    }
+  } else {
+    // Fallback for system categories or others
+    config = {
+      label: categoryLabel || "Outros",
+      icon: Icons.Circle,
+      color: "#94a3b8", // slate-400
     }
   }
 
@@ -81,9 +93,11 @@ export function TaskDetailModal({
             </div>
             <div className="flex-1">
               <DialogTitle className="text-2xl text-balance">{task.title}</DialogTitle>
-              <Badge variant="secondary" className="mt-1">
-                {config.label}
-              </Badge>
+              <DialogDescription className="mt-1">
+                <Badge variant="secondary">
+                  {config.label}
+                </Badge>
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>

@@ -8,7 +8,6 @@ import { Progress } from "@/components/ui/progress"
 import { Calendar, Clock, Play, Pause, Square, Trash2, Info, Eye } from "lucide-react"
 import { Task, CustomCategory } from "@/lib/types"
 import { motion, AnimatePresence, Variants } from "framer-motion"
-import { categoryConfig } from "@/lib/category-config"
 import { cn } from "@/lib/utils"
 import * as LucideIcons from "lucide-react"
 
@@ -39,25 +38,34 @@ export function TaskCard({
   const [isExpanded, setIsExpanded] = useState(false)
   const isSameDay = task.startDate.toDateString() === task.endDate.toDateString()
 
-  let config: any = categoryConfig[task.category]
+  // Resolve category ID and label
+  const categoryId = typeof task.category === "object" && task.category !== null 
+    ? (task.category as any).id 
+    : task.category
+  
+  const categoryLabel = typeof task.category === "object" && task.category !== null
+    ? (task.category as any).label
+    : task.category
+
+  // Prioritize custom categories from backend
+  const customMatch = customCategories.find((c) => c.id === categoryId)
+  let config: any = null
   let isCustom = false
 
-  if (!config) {
-    const customMatch = customCategories.find((c) => c.id === task.category)
-    if (customMatch) {
-      isCustom = true
-      config = {
-        id: customMatch.id,
-        label: customMatch.label,
-        icon: (LucideIcons as any)[customMatch.icon] || LucideIcons.Circle,
-        color: customMatch.color,
-      }
-    } else {
-      config = categoryConfig["others"] || {
-        label: task.category,
-        icon: LucideIcons.Circle,
-        color: "bg-gray-100 text-gray-700",
-      }
+  if (customMatch) {
+    isCustom = true
+    config = {
+      id: customMatch.id,
+      label: customMatch.label,
+      icon: (LucideIcons as any)[customMatch.icon] || LucideIcons.Circle,
+      color: customMatch.color,
+    }
+  } else {
+    // Fallback for system categories or others
+    config = {
+      label: categoryLabel || "Outros",
+      icon: LucideIcons.Circle,
+      color: "#94a3b8", // slate-400
     }
   }
 
