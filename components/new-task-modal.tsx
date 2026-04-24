@@ -3,17 +3,17 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { categoryConfig } from "@/lib/category-config"
 import type { Category, Subtask, CustomCategory } from "@/lib/types"
 import { Plus, Trash2 } from "lucide-react"
 import * as Icons from "lucide-react"
+import { useEffect } from "react"
 
 interface NewTaskModalProps {
   open: boolean
@@ -31,24 +31,22 @@ interface SubtaskInput {
 
 export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = [] }: NewTaskModalProps) {
   const [isPeriodic, setIsPeriodic] = useState(false)
-  const [category, setCategory] = useState<Category>("study")
+  const [category, setCategory] = useState<Category>(customCategories[0]?.id || "")
+
+  useEffect(() => {
+    if (!category && customCategories.length > 0) {
+      setCategory(customCategories[0].id)
+    }
+  }, [customCategories, category])
   
-  // Combine default and custom categories
-  const allCategories = [
-    ...Object.entries(categoryConfig).map(([key, config]) => ({
-      id: key,
-      label: config.label,
-      icon: config.icon,
-      isCustom: false,
-    })),
-    ...customCategories.map((c) => ({
-      id: c.id,
-      label: c.label,
-      icon: c.icon,
-      isCustom: true,
-      color: c.color,
-    })),
-  ]
+  // Only use custom categories from the backend
+  const allCategories = customCategories.map((c) => ({
+    id: c.id,
+    label: c.label,
+    icon: c.icon,
+    isCustom: true,
+    color: c.color,
+  }))
   const [subtasks, setSubtasks] = useState<SubtaskInput[]>([])
   const [estimatedHours, setEstimatedHours] = useState(1)
   const [estimatedMinutes, setEstimatedMinutes] = useState(0)
@@ -97,9 +95,11 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
 
     onSubmit?.({
       ...data,
+      category: category, // Garantir que a categoria do state seja enviada
       subtasks: formattedSubtasks.length > 0 ? formattedSubtasks : undefined,
       estimatedTime: totalEstimatedTime,
       currentSubtaskIndex: formattedSubtasks.length > 0 ? 0 : undefined,
+      isPeriodic: isPeriodic,
     })
 
     // Reset form
@@ -123,6 +123,9 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nova Tarefa</DialogTitle>
+          <DialogDescription>
+            Preencha os detalhes abaixo para criar um novo objetivo.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
