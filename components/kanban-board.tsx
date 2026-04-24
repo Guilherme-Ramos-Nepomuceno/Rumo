@@ -245,11 +245,20 @@ function KanbanCard({
   onDeleteSubtask,
   customCategories = [],
 }: KanbanCardProps) {
-  let config: any = categoryConfig[task.category]
+  // Resolve category ID and label
+  const categoryId = typeof task.category === "object" && task.category !== null 
+    ? (task.category as any).id 
+    : task.category
+  
+  const categoryLabel = typeof task.category === "object" && task.category !== null
+    ? (task.category as any).label
+    : task.category
+
+  let config: any = categoryConfig[categoryId as keyof typeof categoryConfig]
   let isCustom = false
 
   if (!config) {
-    const customMatch = customCategories.find((c) => c.id === task.category)
+    const customMatch = customCategories.find((c) => c.id === categoryId)
     if (customMatch) {
       isCustom = true
       config = {
@@ -259,7 +268,7 @@ function KanbanCard({
         color: customMatch.color,
       }
     } else {
-      config = categoryConfig["others"]
+      config = categoryConfig["others"] || { label: categoryLabel || "Outros", icon: Icons.Circle, color: "bg-slate-400" }
     }
   }
 
@@ -316,9 +325,10 @@ function KanbanCard({
     let isOvertime = false
 
     // Current subtask progress
-    if (task.currentSubtaskIndex !== undefined && task.currentSubtaskIndex < totalSubtasks) {
+    if (task.subtasks && task.currentSubtaskIndex !== undefined && task.currentSubtaskIndex >= 0 && task.currentSubtaskIndex < totalSubtasks) {
       const currentST = task.subtasks[task.currentSubtaskIndex]
-      const stEstimated = currentST.estimatedTime || 1800
+      if (currentST) {
+        const stEstimated = currentST.estimatedTime || 1800
 
       // Calculate how much time we've spent on the current subtask
       // Total elapsed - Sum of completed subtasks elapsed (if we tracked it)
@@ -337,6 +347,7 @@ function KanbanCard({
         isOvertime = true
       }
     }
+  }
 
     return {
       percent: Math.round(totalProgress),
