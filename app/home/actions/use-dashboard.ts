@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import type { Task, Difficulty, CustomCategory, Category } from "@/lib/types"
-import { mockTasks, mockCompletedTasks } from "@/lib/mock-data"
+import type { Task, Difficulty, CustomCategory, Category, Subtask } from "@/lib/types"
+import { api } from "@/lib/api"
 
 interface CurrentUser {
   id: string
@@ -23,7 +23,56 @@ export function useDashboard() {
   const [taskToComplete, setTaskToComplete] = useState<Task | null>(null)
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const [activityData, setActivityData] = useState<any[]>([])
+  const [performanceData, setPerformanceData] = useState<any[]>([])
+  const [activityCount, setActivityCount] = useState(0)
+  const [showCategoryWarning, setShowCategoryWarning] = useState(false)
   const [mounted, setMounted] = useState(false)
+
+  const parseTask = (t: any): Task => {
+    // Resolve category to a string (ID or legacy key)
+    let category = t.category;
+    if (typeof t.category === "object" && t.category !== null) {
+      category = t.category.id;
+    } else if (t.categoryId) {
+      category = t.categoryId;
+    }
+
+    return {
+      ...t,
+      category,
+      startDate: t.startDate ? new Date(t.startDate) : new Date(),
+      endDate: t.endDate ? new Date(t.endDate) : new Date(),
+      createdAt: t.createdAt ? new Date(t.createdAt) : undefined,
+      completedAt: t.completedAt ? new Date(t.completedAt) : undefined,
+      subtasks: t.subtasks?.map((st: any) => ({
+        ...st,
+        completedAt: st.completedAt ? new Date(st.completedAt) : undefined,
+      })),
+    }
+  }
+
+  const fetchActivityData = useCallback(async (filters: { startDate?: string; endDate?: string; categoryId?: string } = {}) => {
+    if (navigator.onLine) {
+      try {
+        const activity = await api.stats.activity(filters);
+        setActivityData(activity);
+      } catch (e) {
+        console.error("Erro ao carregar atividades:", e);
+      }
+    }
+  }, []);
+
+  const fetchPerformanceData = useCallback(async (filters: { month?: string; categoryId?: string } = {}) => {
+    if (navigator.onLine) {
+      try {
+        const performance = await api.stats.performance(filters);
+        setPerformanceData(performance);
+      } catch (e) {
+        console.error("Erro ao carregar performance:", e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     setMounted(true)
@@ -39,58 +88,69 @@ export function useDashboard() {
       setCurrentUser(JSON.parse(userStr))
     }
 
-    // Load tasks
-    const storedTasks = localStorage.getItem("rumo_tasks")
-    if (storedTasks) {
-      const parsedTasks = JSON.parse(storedTasks).map((t: any) => ({
-        ...t,
-        startDate: new Date(t.startDate),
-        endDate: new Date(t.endDate),
-        createdAt: t.createdAt ? new Date(t.createdAt) : undefined,
-        completedAt: t.completedAt ? new Date(t.completedAt) : undefined,
-        subtasks: t.subtasks?.map((st: any) => ({
-          ...st,
-          completedAt: st.completedAt ? new Date(st.completedAt) : undefined,
-        })),
-      }))
-      setTasks(parsedTasks)
-    } else {
-      setTasks(mockTasks)
+    // Load tasks and initial context
+    const loadData = async () => {
+      if (navigator.onLine) {
+        try {
+          const response = await api.tasks.list()
+          setTasks(response.tasks.map(parseTask))
+          setCustomCategories(response.categories)
+          setActivityCount(response.activityCount)
+          return
+        } catch (e) {
+          console.error("Erro ao carregar dados do backend:", e)
+        }
+      }
+
+      const storedTasks = localStorage.getItem("rumo_tasks")
+      if (storedTasks) {
+        setTasks(JSON.parse(storedTasks).map(parseTask))
+      }
+
+      const storedCategories = localStorage.getItem("rumo_custom_categories")
+      if (storedCategories) {
+        setCustomCategories(JSON.parse(storedCategories))
+      }
     }
+
+    loadData()
 
     // Load completed tasks
-    const storedCompleted = localStorage.getItem("rumo_completed_tasks")
-    if (storedCompleted) {
-      const parsedCompleted = JSON.parse(storedCompleted).map((t: any) => ({
-        ...t,
-        startDate: new Date(t.startDate),
-        endDate: new Date(t.endDate),
-        createdAt: t.createdAt ? new Date(t.createdAt) : undefined,
-        completedAt: t.completedAt ? new Date(t.completedAt) : undefined,
-        subtasks: t.subtasks?.map((st: any) => ({
-          ...st,
-          completedAt: st.completedAt ? new Date(st.completedAt) : undefined,
-        })),
-      }))
-      setCompletedTasks(parsedCompleted)
-    } else {
-      setCompletedTasks(mockCompletedTasks)
+    const loadCompletedTasks = async () => {
+      if (navigator.onLine) {
+        try {
+          const history = await api.tasks.history()
+          setCompletedTasks(history.map(parseTask))
+          return
+        } catch (e) {
+          console.error("Erro ao carregar histórico do backend:", e)
+        }
+      }
+
+      const storedCompleted = localStorage.getItem("rumo_completed_tasks")
+      if (storedCompleted) {
+        setCompletedTasks(JSON.parse(storedCompleted).map(parseTask))
+      } else {
+        setCompletedTasks([])
+      }
     }
 
-    // Load custom categories
-    const storedCategories = localStorage.getItem("rumo_custom_categories")
-    if (storedCategories) setCustomCategories(JSON.parse(storedCategories))
-  }, [router])
+    loadCompletedTasks()
+
+    // Load Stats Initial
+    fetchActivityData()
+    fetchPerformanceData()
+  }, [router, fetchActivityData, fetchPerformanceData])
 
   // Save state to localStorage automatically
   useEffect(() => {
-    if (mounted && tasks.length > 0) {
+    if (mounted) {
       localStorage.setItem("rumo_tasks", JSON.stringify(tasks))
     }
   }, [tasks, mounted])
 
   useEffect(() => {
-    if (mounted && completedTasks.length > 0) {
+    if (mounted) {
       localStorage.setItem("rumo_completed_tasks", JSON.stringify(completedTasks))
     }
   }, [completedTasks, mounted])
@@ -107,21 +167,50 @@ export function useDashboard() {
     router.push("/login")
   }
 
+  const handleOpenNewTaskModal = () => {
+    if (customCategories.length === 0) {
+      setShowCategoryWarning(true);
+      setCategoryManagerOpen(true);
+      return;
+    }
+    setNewTaskModalOpen(true);
+  }
+
   const handleViewDetails = (task: Task) => {
     setSelectedTask(task)
     setDetailModalOpen(true)
   }
 
-  const handleStartTask = (taskId: string) => {
+  const handleStartTask = async (taskId: string) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status: "in-progress" as const } : t))
     )
+    
+    try {
+      if (navigator.onLine) {
+        await api.tasks.update(taskId, { status: "in-progress" })
+      } else {
+        api.sync.push("update_task", { id: taskId, status: "in-progress" })
+      }
+    } catch (e) {
+      api.sync.push("update_task", { id: taskId, status: "in-progress" })
+    }
   }
 
-  const handlePauseTask = (taskId: string) => {
+  const handlePauseTask = async (taskId: string) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status: "paused" as const } : t))
     )
+
+    try {
+      if (navigator.onLine) {
+        await api.tasks.update(taskId, { status: "paused" })
+      } else {
+        api.sync.push("update_task", { id: taskId, status: "paused" })
+      }
+    } catch (e) {
+      api.sync.push("update_task", { id: taskId, status: "paused" })
+    }
   }
 
   const handleCompleteTask = (taskId: string) => {
@@ -131,32 +220,73 @@ export function useDashboard() {
     setCompletionModalOpen(true)
   }
 
-  const handleNextStep = (taskId: string) => {
+  const handleNextStep = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || !task.subtasks || task.currentSubtaskIndex === undefined) return;
+
+    const currentSubtask = task.subtasks[task.currentSubtaskIndex];
+    if (!currentSubtask) return;
+
+    const nextIndex = task.currentSubtaskIndex + 1;
+    const newSubtasks = [...task.subtasks];
+    newSubtasks[task.currentSubtaskIndex] = {
+      ...currentSubtask,
+      completed: true,
+      completedAt: new Date(),
+    };
+
+    const completedCount = newSubtasks.filter((s) => s.completed).length;
+    const progress = Math.round((completedCount / newSubtasks.length) * 100);
+
     setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId && t.subtasks && t.currentSubtaskIndex !== undefined) {
-          const newSubtasks = [...t.subtasks]
-          newSubtasks[t.currentSubtaskIndex] = {
-            ...newSubtasks[t.currentSubtaskIndex],
-            completed: true,
-            completedAt: new Date(),
-          }
-          const nextIndex = t.currentSubtaskIndex + 1
-          const completedCount = newSubtasks.filter((s) => s.completed).length
-          const progress = Math.round((completedCount / newSubtasks.length) * 100)
-          return {
-            ...t,
-            subtasks: newSubtasks,
-            currentSubtaskIndex: nextIndex < newSubtasks.length ? nextIndex : t.currentSubtaskIndex,
-            progress,
-          }
-        }
-        return t
-      })
-    )
+      prev.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              subtasks: newSubtasks,
+              currentSubtaskIndex: nextIndex < newSubtasks.length ? nextIndex : t.currentSubtaskIndex,
+              progress,
+            }
+          : t
+      )
+    );
+
+    // Persistir no backend
+    try {
+      if (navigator.onLine) {
+        const updatedTask = await api.subtasks.tick(currentSubtask.id, 0)
+        const parsedTask = parseTask(updatedTask)
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? parsedTask : t)))
+      } else {
+        api.sync.push("subtask_tick", { 
+            id: currentSubtask.id,
+            elapsed_time_increment: 0 
+        });
+        
+        // Mantemos o estado otimista local se estiver offline
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === taskId
+              ? {
+                  ...t,
+                  subtasks: newSubtasks,
+                  currentSubtaskIndex: nextIndex < newSubtasks.length ? nextIndex : t.currentSubtaskIndex,
+                  progress,
+                }
+              : t
+          )
+        );
+      }
+    } catch (e) {
+      console.error("Erro ao atualizar subtarefa no backend:", e)
+      api.sync.push("subtask_tick", { 
+          id: currentSubtask.id,
+          elapsed_time_increment: 0 
+      });
+    }
   }
 
-  const handleCompletionSubmit = (difficulty: Difficulty, satisfaction: number) => {
+  const handleCompletionSubmit = async (difficulty: Difficulty, satisfaction: number) => {
     if (!taskToComplete) return
     const completedTask: Task = {
       ...taskToComplete,
@@ -168,7 +298,18 @@ export function useDashboard() {
     }
     setTasks((prev) => prev.filter((t) => t.id !== taskToComplete.id))
     setCompletedTasks((prev) => [completedTask, ...prev])
+    setActivityCount((prev) => prev + 1)
     setTaskToComplete(null)
+
+    try {
+      if (navigator.onLine) {
+        await api.tasks.update(completedTask.id, completedTask)
+      } else {
+        api.sync.push("complete_task", completedTask)
+      }
+    } catch (e) {
+      api.sync.push("complete_task", completedTask)
+    }
   }
 
   const handleReorderKanban = (taskId: string, direction: "up" | "down", column: "paused" | "in-progress") => {
@@ -188,8 +329,17 @@ export function useDashboard() {
     })
   }
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteTask = async (taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId))
+    try {
+      if (navigator.onLine) {
+        await api.tasks.delete(taskId)
+      } else {
+        api.sync.push("delete_task", { id: taskId })
+      }
+    } catch (e) {
+      api.sync.push("delete_task", { id: taskId })
+    }
   }
 
   const handleRevertToPending = (taskId: string) => {
@@ -198,19 +348,38 @@ export function useDashboard() {
     ))
   }
 
-  const handleRepeatTask = (task: Task) => {
+  const handleRepeatTask = async (task: Task) => {
+    const baseDate = task.completedAt || new Date()
+    const durationMs = task.endDate.getTime() - task.startDate.getTime()
+
     const newTask: Task = {
       ...task,
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       status: "pending",
       progress: 0,
       elapsedTime: 0,
       completedAt: undefined,
       actualDifficulty: undefined,
       actualSatisfaction: undefined,
-      order: tasks.length > 0 ? Math.max(...tasks.map((t) => t.order)) + 1 : 0
+      startDate: baseDate,
+      endDate: new Date(baseDate.getTime() + durationMs),
+      order: tasks.length > 0 ? Math.max(...tasks.map((t) => t.order)) + 1 : 0,
     }
+
     setTasks((prev) => [...prev, newTask])
+
+    try {
+      if (navigator.onLine) {
+        const createdTask = await api.tasks.create(newTask)
+        const parsedCreatedTask = parseTask(createdTask)
+        setTasks((prev) => prev.map((t) => (t.id === newTask.id ? parsedCreatedTask : t)))
+      } else {
+        api.sync.push("create_task", newTask)
+      }
+    } catch (e) {
+      console.error("Erro ao repetir tarefa no backend:", e)
+      api.sync.push("create_task", newTask)
+    }
   }
 
   const handleDragReorder = (taskId: string, newIndex: number, column: "paused" | "in-progress") => {
@@ -236,15 +405,40 @@ export function useDashboard() {
     })
   }
 
-  const handleAddCategory = (category: { label: string; color: string; icon: string }) => {
+  const handleAddCategory = async (category: { label: string; color: string; icon: string }) => {
+    // Check for duplicate label
+    const isDuplicate = customCategories.some(
+      (c) => c.label.toLowerCase() === category.label.toLowerCase()
+    )
+
+    if (isDuplicate) {
+      alert("Você já possui uma categoria com este nome.")
+      return
+    }
+
     const newCategory: CustomCategory = {
       id: crypto.randomUUID(),
       ...category,
     }
+    
+    // Optimistic update
     setCustomCategories((prev) => [...prev, newCategory])
+
+    try {
+      if (navigator.onLine) {
+        const createdCategory = await api.categories.create(newCategory)
+        // Opcional: atualizar o ID real do backend se for diferente do UUID gerado
+        // setCustomCategories(prev => prev.map(c => c.id === newCategory.id ? createdCategory : c))
+      } else {
+        api.sync.push("category_create", newCategory)
+      }
+    } catch (e) {
+      console.error("Erro ao criar categoria no backend:", e)
+      api.sync.push("category_create", newCategory)
+    }
   }
 
-  const handleAddTask = (taskData: any) => {
+  const handleAddTask = async (taskData: any) => {
     const newTask: Task = {
       id: crypto.randomUUID(),
       title: taskData.title,
@@ -264,21 +458,33 @@ export function useDashboard() {
       expectedSatisfaction: Number(taskData.satisfaction) || 3,
       importance: "not-urgent-important",
       subtasks: taskData.subtasks,
-      currentSubtaskIndex: taskData.currentSubtaskIndex,
+      currentSubtaskIndex: taskData.subtasks && taskData.subtasks.length > 0 ? 0 : undefined,
     }
     setTasks((prev) => [...prev, newTask])
+
+    try {
+      if (navigator.onLine) {
+        const createdTask = await api.tasks.create(newTask)
+        const parsedCreatedTask = parseTask(createdTask)
+        setTasks((prev) => prev.map(t => t.id === newTask.id ? parsedCreatedTask : t))
+      } else {
+        api.sync.push("create_task", newTask)
+      }
+    } catch (e) {
+      console.error("Erro ao criar no backend:", e)
+      api.sync.push("create_task", newTask)
+    }
   }
-  const handleAddSubtask = (taskId: string, subtask: { title: string; estimatedTime: number }) => {
+  const handleAddSubtask = async (taskId: string, subtask: { title: string; estimatedTime: number }) => {
+    const newSubtaskId = crypto.randomUUID()
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === taskId) {
-          const newSubtasks = [...(t.subtasks || []), {
-            id: crypto.randomUUID(),
-            title: subtask.title,
-            estimatedTime: subtask.estimatedTime || 1800,
-            elapsedTime: 0,
-            completed: false,
-          }]
+          const newSubtasks = [
+            ...(t.subtasks || []),
+            { id: newSubtaskId, ...subtask, completed: false, elapsedTime: 0 },
+          ]
           return {
             ...t,
             subtasks: newSubtasks,
@@ -288,9 +494,35 @@ export function useDashboard() {
         return t
       })
     )
+
+    // Sincronizar com o backend
+    try {
+      if (navigator.onLine) {
+        const currentTask = tasks.find((t) => t.id === taskId)
+        const updatedSubtasks = currentTask?.subtasks
+          ? [...currentTask.subtasks, { id: newSubtaskId, ...subtask, completed: false, elapsedTime: 0 }]
+          : [{ id: newSubtaskId, ...subtask, completed: false, elapsedTime: 0 }]
+
+        await api.tasks.update(taskId, { subtasks: updatedSubtasks as Subtask[] })
+      } else {
+        api.sync.push("update_task", {
+          id: taskId,
+          subtasks: tasks.find((t) => t.id === taskId)?.subtasks
+            ? [...tasks.find((t) => t.id === taskId)!.subtasks!, { id: newSubtaskId, ...subtask, completed: false, elapsedTime: 0 }]
+            : [{ id: newSubtaskId, ...subtask, completed: false, elapsedTime: 0 }],
+        })
+      }
+    } catch (e) {
+      api.sync.push("update_task", {
+        id: taskId,
+        subtasks: tasks.find((t) => t.id === taskId)?.subtasks
+          ? [...tasks.find((t) => t.id === taskId)!.subtasks!, { id: newSubtaskId, ...subtask, completed: false, elapsedTime: 0 }]
+          : [{ id: newSubtaskId, ...subtask, completed: false, elapsedTime: 0 }],
+      })
+    }
   }
 
-  const handleDeleteSubtask = (taskId: string, subtaskId: string) => {
+  const handleDeleteSubtask = async (taskId: string, subtaskId: string) => {
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === taskId && t.subtasks) {
@@ -306,6 +538,31 @@ export function useDashboard() {
         return t
       })
     )
+
+    // Sincronizar com o backend
+    try {
+      if (navigator.onLine) {
+        const updatedSubtasks = tasks.find(t => t.id === taskId)?.subtasks?.filter(s => s.id !== subtaskId) || [];
+        await api.tasks.update(taskId, { subtasks: updatedSubtasks });
+      } else {
+        api.sync.push("update_task", { 
+            id: taskId, 
+            subtasks: tasks.find(t => t.id === taskId)?.subtasks?.filter(s => s.id !== subtaskId) || []
+        });
+      }
+    } catch (e) {
+      api.sync.push("update_task", { 
+          id: taskId, 
+          subtasks: tasks.find(t => t.id === taskId)?.subtasks?.filter(s => s.id !== subtaskId) || []
+      });
+    }
+  }
+
+  const handleClearAll = () => {
+    setTasks([])
+    setCompletedTasks([])
+    localStorage.removeItem("rumo_tasks")
+    localStorage.removeItem("rumo_completed_tasks")
   }
 
   return {
@@ -314,16 +571,24 @@ export function useDashboard() {
     tasks,
     completedTasks,
     currentUser,
+    activityData,
+    performanceData,
+    activityCount,
+    fetchActivityData,
+    fetchPerformanceData,
     customCategories,
     selectedTask,
     detailModalOpen,
     setDetailModalOpen,
     newTaskModalOpen,
     setNewTaskModalOpen,
+    handleOpenNewTaskModal,
     completionModalOpen,
     setCompletionModalOpen,
     categoryManagerOpen,
     setCategoryManagerOpen,
+    showCategoryWarning,
+    setShowCategoryWarning,
     taskToComplete,
     handleLogout,
     handleViewDetails,
@@ -341,5 +606,7 @@ export function useDashboard() {
     handleAddTask,
     handleAddSubtask,
     handleDeleteSubtask,
+    handleClearAll,
   }
 }
+
