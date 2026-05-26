@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 interface CurrentActivityCardProps {
   task: Task | null
   onStart?: () => void
-  onPause?: () => void
+  onPause?: (elapsedTime: number) => void
   onComplete?: () => void
   onCompleteStep?: (stepIndex: number) => void
 }
@@ -58,7 +58,7 @@ export function CurrentActivityCard({ task, onStart, onPause, onComplete, onComp
 
   const config = categoryConfig[task.category] || categoryConfig["others"]
   const Icon = config.icon
-  const hasSteps = task.steps && task.steps.length > 0
+  const hasSteps = (task as any).steps && (task as any).steps.length > 0
 
   return (
     <Card className="p-6 shadow-lg">
@@ -90,8 +90,8 @@ export function CurrentActivityCard({ task, onStart, onPause, onComplete, onComp
                 Etapas
               </h4>
               <div className="space-y-2">
-                {task.steps!.map((step, index) => {
-                  const isCompleted = task.completedSteps?.includes(index)
+                {(task as any).steps!.map((step: any, index: number) => {
+                  const isCompleted = (task as any).completedSteps?.includes(index)
                   return (
                     <div key={index} className="flex items-start gap-2">
                       <Checkbox
@@ -133,7 +133,7 @@ export function CurrentActivityCard({ task, onStart, onPause, onComplete, onComp
               <Button
                 onClick={() => {
                   setIsRunning(false)
-                  onPause?.()
+                  onPause?.(elapsedTime)
                 }}
                 variant="secondary"
                 className="flex-1"

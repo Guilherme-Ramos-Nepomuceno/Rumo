@@ -9,7 +9,7 @@ interface ActiveTasksSectionProps {
   customCategories: CustomCategory[]
   onViewDetails: (task: Task) => void
   onStartTask: (taskId: string) => void
-  onPauseTask: (taskId: string) => void
+  onPauseTask: (taskId: string, elapsedTime?: number) => void
   onCompleteTask: (taskId: string) => void
   onNextStep: (taskId: string) => void
   onReorder: (taskId: string, direction: "up" | "down", column: "paused" | "in-progress") => void

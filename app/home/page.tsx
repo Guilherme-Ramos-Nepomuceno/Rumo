@@ -8,6 +8,7 @@ import { DashboardModals } from "./components/dashboard-modals"
 import { ActivityTracker } from "@/components/activity-tracker"
 import { PerformanceChart } from "@/components/performance-chart"
 import { ActiveTasksSection } from "./components/active-tasks-section"
+import { SummarySection } from "@/components/summary-section"
 
 export default function Dashboard() {
   const {
@@ -22,6 +23,8 @@ export default function Dashboard() {
     fetchPerformanceData,
     customCategories,
     selectedTask,
+    taskToEdit,
+    handleEditTask,
     detailModalOpen,
     setDetailModalOpen,
     newTaskModalOpen,
@@ -55,6 +58,39 @@ export default function Dashboard() {
 
   if (!mounted) {
     return null
+  }
+
+  // Calculate daily & weekly summaries for mobile-responsive SummarySection
+  const today = new Date()
+  const isToday = (d: Date) => d && d.toDateString() === today.toDateString()
+  const weekStart = new Date(today)
+  weekStart.setDate(today.getDate() - today.getDay())
+  const isThisWeek = (d: Date) => d && d >= weekStart && d <= today
+
+  const todayActive = tasks.filter(t => isToday(t.startDate) || (t.startDate <= today && t.endDate >= today))
+  const todayCompleted = completedTasks.filter(t => t.completedAt && isToday(t.completedAt))
+  
+  const byCategory: Record<string, number> = {}
+  todayActive.forEach(t => {
+    byCategory[t.category] = (byCategory[t.category] || 0) + 1
+  })
+  todayCompleted.forEach(t => {
+    byCategory[t.category] = (byCategory[t.category] || 0) + 1
+  })
+
+  const dailySummary = {
+    date: today,
+    totalTasks: todayActive.length + todayCompleted.length,
+    completedTasks: todayCompleted.length,
+    byCategory
+  }
+
+  const weekActive = tasks.filter(t => isThisWeek(t.startDate) || (t.startDate <= today && t.endDate >= weekStart))
+  const weekCompletedTasks = completedTasks.filter(t => t.completedAt && isThisWeek(t.completedAt))
+
+  const weeklySummary = {
+    totalTasks: weekActive.length + weekCompletedTasks.length,
+    completedTasks: weekCompletedTasks.length
   }
 
   const pausedTasks = tasks.filter((t) => t.status === "paused").sort((a, b) => a.order - b.order)
@@ -100,9 +136,20 @@ export default function Dashboard() {
               onStartTask={handleStartTask}
             />
 
+            {/* Summary Section (Mobile only) */}
+            <div className="xl:hidden">
+              <SummarySection
+                dailySummary={dailySummary}
+                weeklySummary={weeklySummary}
+                customCategories={customCategories}
+              />
+            </div>
+
             <section>
               <ActivityTracker 
                 data={activityData} 
+                completedTasks={completedTasks}
+                openTasks={tasks}
                 customCategories={customCategories}
                 onFilterChange={fetchActivityData}
               />
@@ -129,6 +176,8 @@ export default function Dashboard() {
 
       <DashboardModals
         selectedTask={selectedTask}
+        taskToEdit={taskToEdit}
+        onEditTask={handleEditTask}
         detailModalOpen={detailModalOpen}
         setDetailModalOpen={setDetailModalOpen}
         newTaskModalOpen={newTaskModalOpen}

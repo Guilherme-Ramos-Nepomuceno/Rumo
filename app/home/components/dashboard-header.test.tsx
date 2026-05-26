@@ -8,6 +8,8 @@ describe("DashboardHeader", () => {
     onLogout: vi.fn(),
     onOpenNewTask: vi.fn(),
     onOpenCategories: vi.fn(),
+    onClearAll: vi.fn(),
+    activityCount: 0,
   }
 
   it("renders correctly with user name", () => {

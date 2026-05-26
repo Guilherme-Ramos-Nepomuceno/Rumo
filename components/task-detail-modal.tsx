@@ -13,6 +13,7 @@ interface TaskDetailModalProps {
   onOpenChange: (open: boolean) => void
   onDeleteSubtask?: (taskId: string, subtaskId: string) => void
   customCategories?: CustomCategory[]
+  onEditTask?: (task: Task) => void
 }
 
 export function TaskDetailModal({ 
@@ -20,7 +21,8 @@ export function TaskDetailModal({
   open, 
   onOpenChange, 
   onDeleteSubtask,
-  customCategories = [] 
+  customCategories = [],
+  onEditTask
 }: TaskDetailModalProps) {
   if (!task) return null
 
@@ -92,8 +94,19 @@ export function TaskDetailModal({
               <Icon className="w-6 h-6" />
             </div>
             <div className="flex-1">
-              <DialogTitle className="text-2xl text-balance">{task.title}</DialogTitle>
-              <DialogDescription className="mt-1">
+              <div className="flex items-center justify-between gap-3">
+                <DialogTitle className="text-2xl text-balance">{task.title}</DialogTitle>
+                {onEditTask && (
+                  <button
+                    onClick={() => onEditTask(task)}
+                    className="p-1.5 text-muted-foreground hover:text-primary transition-all rounded-lg bg-muted/40 hover:bg-muted shrink-0 mr-6"
+                    title="Editar Tarefa"
+                  >
+                    <Icons.Edit3 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <DialogDescription className="mt-1 flex flex-wrap gap-2">
                 <Badge variant="secondary">
                   {config.label}
                 </Badge>
@@ -173,29 +186,37 @@ export function TaskDetailModal({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-muted/20 dark:bg-muted/5 rounded-2xl border border-border/30">
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5" />
                 Data
               </h4>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs font-bold text-foreground">
                 {formatDate(task.startDate)}
                 {task.startDate.toDateString() !== task.endDate.toDateString() && ` - ${formatDate(task.endDate)}`}
               </p>
             </div>
 
-            {task.startTime && task.endTime && (
-              <div>
-                <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  Horário
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  {task.startTime} - {task.endTime}
-                </p>
-              </div>
-            )}
+            <div>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                Horário Agendado
+              </h4>
+              <p className="text-xs font-bold text-foreground">
+                {task.startTime && task.endTime ? `${task.startTime} - ${task.endTime}` : "Sem horário definido"}
+              </p>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <Icons.Timer className="w-3.5 h-3.5" />
+                Tempo Estimado
+              </h4>
+              <p className="text-xs font-bold text-foreground">
+                {task.estimatedTime ? formatTimeShort(task.estimatedTime) : "Não definido"}
+              </p>
+            </div>
           </div>
 
           {task.isPeriodic && task.periodicInterval && (

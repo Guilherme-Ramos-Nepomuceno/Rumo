@@ -75,4 +75,5 @@ export interface CustomCategory {
   label: string
   icon: string
   color: string
+  synced?: boolean // false = criada localmente, aguardando confirmação do backend
 }

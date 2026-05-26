@@ -57,11 +57,12 @@ graph TD
 
 ## 🔗 Environment Variables
 
-Atualmente, o projeto não exige variáveis de ambiente externas, pois a persistência é feita via **LocalStorage**.
+O projeto utiliza integração com o backend de API Laravel para sincronização centralizada e offline-first.
 
-| Key | Description | Required | Output |
-|-----|-------------|----------|--------|
-| `NODE_ENV` | Ambiente de execução | N | `development` / `production` |
+| Key | Description | Required | Default / Exemplo |
+|-----|-------------|----------|-------------------|
+| `NEXT_PUBLIC_API_URL` | URL base da API REST do Rumo | Sim | `http://localhost:8080/api/v1` |
+| `NODE_ENV` | Ambiente de execução | Não | `development` / `production` |
 
 ---
 
