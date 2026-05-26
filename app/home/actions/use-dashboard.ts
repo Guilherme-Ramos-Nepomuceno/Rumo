@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import type { Task, Difficulty, CustomCategory, Category, Subtask } from "@/lib/types"
 import { api } from "@/lib/api"
@@ -25,9 +25,17 @@ export function useDashboard() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [activityData, setActivityData] = useState<any[]>([])
   const [performanceData, setPerformanceData] = useState<any[]>([])
+  const [activityFilters, setActivityFilters] = useState<{ startDate?: string; endDate?: string; categoryId?: string }>({})
+  const [performanceFilters, setPerformanceFilters] = useState<{ month?: string; categoryId?: string }>({})
   const [activityCount, setActivityCount] = useState(0)
   const [showCategoryWarning, setShowCategoryWarning] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
+
+  // Debounce timers
+  const storageTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const activityTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const performanceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const parseTask = (t: any): Task => {
     // Resolve category to a string (ID or legacy key)
@@ -36,6 +44,8 @@ export function useDashboard() {
       category = t.category.id;
     } else if (t.categoryId) {
       category = t.categoryId;
+    } else if (t.category_id) {
+      category = t.category_id;
     }
 
     return {
@@ -52,26 +62,40 @@ export function useDashboard() {
     }
   }
 
-  const fetchActivityData = useCallback(async (filters: { startDate?: string; endDate?: string; categoryId?: string } = {}) => {
-    if (navigator.onLine) {
-      try {
-        const activity = await api.stats.activity(filters);
-        setActivityData(activity);
-      } catch (e) {
-        console.error("Erro ao carregar atividades:", e);
+  const debouncedFetchActivityData = useCallback((filters: { startDate?: string; endDate?: string; categoryId?: string } = {}) => {
+    if (activityTimeoutRef.current) clearTimeout(activityTimeoutRef.current);
+    activityTimeoutRef.current = setTimeout(() => {
+      if (navigator.onLine) {
+        try {
+          setActivityFilters(filters);
+          api.stats.activity(filters).then(activity => {
+            setActivityData(activity.slice(0, 100));
+          }).catch(e => {
+            console.error("Erro ao carregar atividades:", e);
+          });
+        } catch (e) {
+          console.error("Erro ao carregar atividades:", e);
+        }
       }
-    }
+    }, 1500);
   }, []);
 
-  const fetchPerformanceData = useCallback(async (filters: { month?: string; categoryId?: string } = {}) => {
-    if (navigator.onLine) {
-      try {
-        const performance = await api.stats.performance(filters);
-        setPerformanceData(performance);
-      } catch (e) {
-        console.error("Erro ao carregar performance:", e);
+  const debouncedFetchPerformanceData = useCallback((filters: { month?: string; categoryId?: string } = {}) => {
+    if (performanceTimeoutRef.current) clearTimeout(performanceTimeoutRef.current);
+    performanceTimeoutRef.current = setTimeout(() => {
+      if (navigator.onLine) {
+        try {
+          setPerformanceFilters(filters);
+          api.stats.performance(filters).then(performance => {
+            setPerformanceData(performance.slice(0, 100));
+          }).catch(e => {
+            console.error("Erro ao carregar performance:", e);
+          });
+        } catch (e) {
+          console.error("Erro ao carregar performance:", e);
+        }
       }
-    }
+    }, 1500);
   }, []);
 
   useEffect(() => {
@@ -93,7 +117,7 @@ export function useDashboard() {
       if (navigator.onLine) {
         try {
           const response = await api.tasks.list()
-          setTasks(response.tasks.map(parseTask))
+          setTasks(response.tasks.slice(0, 200).map(parseTask))
           setCustomCategories(response.categories)
           setActivityCount(response.activityCount)
           return
@@ -104,7 +128,7 @@ export function useDashboard() {
 
       const storedTasks = localStorage.getItem("rumo_tasks")
       if (storedTasks) {
-        setTasks(JSON.parse(storedTasks).map(parseTask))
+        setTasks(JSON.parse(storedTasks).slice(0, 200).map(parseTask))
       }
 
       const storedCategories = localStorage.getItem("rumo_custom_categories")
@@ -120,7 +144,7 @@ export function useDashboard() {
       if (navigator.onLine) {
         try {
           const history = await api.tasks.history()
-          setCompletedTasks(history.map(parseTask))
+          setCompletedTasks(history.slice(0, 500).map(parseTask))
           return
         } catch (e) {
           console.error("Erro ao carregar histórico do backend:", e)
@@ -129,7 +153,7 @@ export function useDashboard() {
 
       const storedCompleted = localStorage.getItem("rumo_completed_tasks")
       if (storedCompleted) {
-        setCompletedTasks(JSON.parse(storedCompleted).map(parseTask))
+        setCompletedTasks(JSON.parse(storedCompleted).slice(0, 500).map(parseTask))
       } else {
         setCompletedTasks([])
       }
@@ -138,28 +162,26 @@ export function useDashboard() {
     loadCompletedTasks()
 
     // Load Stats Initial
-    fetchActivityData()
-    fetchPerformanceData()
-  }, [router, fetchActivityData, fetchPerformanceData])
+    debouncedFetchActivityData()
+    debouncedFetchPerformanceData()
+  }, [router, debouncedFetchActivityData, debouncedFetchPerformanceData])
 
-  // Save state to localStorage automatically
+  // Save state to localStorage with debounce to prevent excessive writes
   useEffect(() => {
-    if (mounted) {
+    if (!mounted) return
+
+    if (storageTimeoutRef.current) clearTimeout(storageTimeoutRef.current)
+
+    storageTimeoutRef.current = setTimeout(() => {
       localStorage.setItem("rumo_tasks", JSON.stringify(tasks))
-    }
-  }, [tasks, mounted])
-
-  useEffect(() => {
-    if (mounted) {
       localStorage.setItem("rumo_completed_tasks", JSON.stringify(completedTasks))
-    }
-  }, [completedTasks, mounted])
-
-  useEffect(() => {
-    if (mounted) {
       localStorage.setItem("rumo_custom_categories", JSON.stringify(customCategories))
+    }, 2000)
+
+    return () => {
+      if (storageTimeoutRef.current) clearTimeout(storageTimeoutRef.current)
     }
-  }, [customCategories, mounted])
+  }, [tasks, completedTasks, customCategories, mounted])
 
   const handleLogout = () => {
     localStorage.removeItem("auth_token")
@@ -168,12 +190,19 @@ export function useDashboard() {
   }
 
   const handleOpenNewTaskModal = () => {
+    setTaskToEdit(null)
     if (customCategories.length === 0) {
       setShowCategoryWarning(true);
       setCategoryManagerOpen(true);
       return;
     }
     setNewTaskModalOpen(true);
+  }
+
+  const handleEditTask = (task: Task) => {
+    setTaskToEdit(task)
+    setDetailModalOpen(false)
+    setNewTaskModalOpen(true)
   }
 
   const handleViewDetails = (task: Task) => {
@@ -197,19 +226,38 @@ export function useDashboard() {
     }
   }
 
-  const handlePauseTask = async (taskId: string) => {
+  const handlePauseTask = async (taskId: string, elapsedTime?: number) => {
     setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: "paused" as const } : t))
+      prev.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              status: "paused" as const,
+              elapsedTime: elapsedTime ?? t.elapsedTime
+            }
+          : t
+      )
     )
 
     try {
       if (navigator.onLine) {
-        await api.tasks.update(taskId, { status: "paused" })
+        await api.tasks.update(taskId, {
+          status: "paused",
+          elapsedTime: elapsedTime
+        })
       } else {
-        api.sync.push("update_task", { id: taskId, status: "paused" })
+        api.sync.push("update_task", {
+          id: taskId,
+          status: "paused",
+          elapsedTime: elapsedTime
+        })
       }
     } catch (e) {
-      api.sync.push("update_task", { id: taskId, status: "paused" })
+      api.sync.push("update_task", {
+        id: taskId,
+        status: "paused",
+        elapsedTime: elapsedTime
+      })
     }
   }
 
@@ -304,6 +352,8 @@ export function useDashboard() {
     try {
       if (navigator.onLine) {
         await api.tasks.update(completedTask.id, completedTask)
+        debouncedFetchActivityData(activityFilters)
+        debouncedFetchPerformanceData(performanceFilters)
       } else {
         api.sync.push("complete_task", completedTask)
       }
@@ -416,29 +466,91 @@ export function useDashboard() {
       return
     }
 
+    const tempId = crypto.randomUUID()
     const newCategory: CustomCategory = {
-      id: crypto.randomUUID(),
+      id: tempId,
       ...category,
+      synced: false, // pendente de confirmação do backend
     }
-    
-    // Optimistic update
+
+    // Optimistic update — aparece imediatamente com label "não sincronizada"
     setCustomCategories((prev) => [...prev, newCategory])
 
+    if (navigator.onLine) {
+      await syncCategory(tempId, newCategory)
+    }
+    // Se offline: permanece com synced=false até próxima tentativa
+  }
+
+  /**
+   * Tenta criar uma categoria no backend e substitui o tempId pelo ID real.
+   * Retorna o ID real em caso de sucesso, ou null em caso de falha.
+   */
+  const syncCategory = async (tempId: string, category: CustomCategory): Promise<string | null> => {
     try {
-      if (navigator.onLine) {
-        const createdCategory = await api.categories.create(newCategory)
-        // Opcional: atualizar o ID real do backend se for diferente do UUID gerado
-        // setCustomCategories(prev => prev.map(c => c.id === newCategory.id ? createdCategory : c))
-      } else {
-        api.sync.push("category_create", newCategory)
-      }
+      const { synced: _synced, ...payload } = category
+      await api.categories.create({ ...payload, id: tempId })
+      // Marca como sincronizada e MANTÉM o tempId como o ID definitivo
+      setCustomCategories((prev) =>
+        prev.map((c) =>
+          c.id === tempId
+            ? { ...c, synced: true }
+            : c
+        )
+      )
+      return tempId
     } catch (e) {
-      console.error("Erro ao criar categoria no backend:", e)
-      api.sync.push("category_create", newCategory)
+      console.error("Erro ao sincronizar categoria com backend:", e)
+      // Mantém synced=false para mostrar o badge de não sincronizada
+      return null
     }
   }
 
   const handleAddTask = async (taskData: any) => {
+    if (taskToEdit) {
+      const updatedTask: Task = {
+        ...taskToEdit,
+        title: taskData.title,
+        description: taskData.description || "",
+        category: taskData.category as Category,
+        estimatedTime: taskData.estimatedTime,
+        startDate: new Date(taskData.startDate || new Date()),
+        endDate: new Date(taskData.endDate || new Date()),
+        startTime: taskData.startTime,
+        endTime: taskData.endTime,
+        isPeriodic: taskData.isPeriodic,
+        expectedDifficulty: taskData.difficulty || "medium",
+        expectedSatisfaction: Number(taskData.satisfaction) || 3,
+        subtasks: taskData.subtasks,
+        currentSubtaskIndex: taskData.subtasks && taskData.subtasks.length > 0 ? 0 : undefined,
+      }
+
+      setTasks((prev) => prev.map((t) => (t.id === taskToEdit.id ? updatedTask : t)))
+      setTaskToEdit(null)
+
+      try {
+        if (navigator.onLine) {
+          const taskCategory = customCategories.find((c) => c.id === updatedTask.category)
+          if (taskCategory && taskCategory.synced === false) {
+            await syncCategory(taskCategory.id, taskCategory)
+          }
+
+          const responseTask = await api.tasks.update(updatedTask.id, updatedTask)
+          const parsedResponseTask = parseTask(responseTask)
+          setTasks((prev) => prev.map(t => t.id === updatedTask.id ? parsedResponseTask : t))
+
+          debouncedFetchActivityData(activityFilters)
+          debouncedFetchPerformanceData(performanceFilters)
+        } else {
+          api.sync.push("update_task", updatedTask)
+        }
+      } catch (e) {
+        console.error("Erro ao editar no backend:", e)
+        api.sync.push("update_task", updatedTask)
+      }
+      return
+    }
+
     const newTask: Task = {
       id: crypto.randomUUID(),
       title: taskData.title,
@@ -464,9 +576,22 @@ export function useDashboard() {
 
     try {
       if (navigator.onLine) {
-        const createdTask = await api.tasks.create(newTask)
+        // Verifica se a categoria da task ainda não foi sincronizada
+        const taskCategory = customCategories.find((c) => c.id === newTask.category)
+
+        if (taskCategory && taskCategory.synced === false) {
+          // Tenta sincronizar a categoria antes de criar a task
+          await syncCategory(taskCategory.id, taskCategory)
+        }
+
+        const taskToCreate = newTask
+
+        const createdTask = await api.tasks.create(taskToCreate)
         const parsedCreatedTask = parseTask(createdTask)
         setTasks((prev) => prev.map(t => t.id === newTask.id ? parsedCreatedTask : t))
+
+        debouncedFetchActivityData(activityFilters)
+        debouncedFetchPerformanceData(performanceFilters)
       } else {
         api.sync.push("create_task", newTask)
       }
@@ -475,6 +600,7 @@ export function useDashboard() {
       api.sync.push("create_task", newTask)
     }
   }
+
   const handleAddSubtask = async (taskId: string, subtask: { title: string; estimatedTime: number }) => {
     const newSubtaskId = crypto.randomUUID()
 
@@ -558,11 +684,19 @@ export function useDashboard() {
     }
   }
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     setTasks([])
     setCompletedTasks([])
     localStorage.removeItem("rumo_tasks")
     localStorage.removeItem("rumo_completed_tasks")
+
+    try {
+      if (navigator.onLine) {
+        await api.tasks.clearAll()
+      }
+    } catch (e) {
+      console.error("Erro ao limpar dados no backend:", e)
+    }
   }
 
   return {
@@ -574,8 +708,8 @@ export function useDashboard() {
     activityData,
     performanceData,
     activityCount,
-    fetchActivityData,
-    fetchPerformanceData,
+    fetchActivityData: debouncedFetchActivityData,
+    fetchPerformanceData: debouncedFetchPerformanceData,
     customCategories,
     selectedTask,
     detailModalOpen,
@@ -590,6 +724,9 @@ export function useDashboard() {
     showCategoryWarning,
     setShowCategoryWarning,
     taskToComplete,
+    taskToEdit,
+    setTaskToEdit,
+    handleEditTask,
     handleLogout,
     handleViewDetails,
     handleStartTask,
