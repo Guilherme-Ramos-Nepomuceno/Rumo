@@ -18,21 +18,9 @@ export function DashboardHeader({ currentUser, activityCount, onLogout, onOpenNe
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 hidden sm:flex">
-          <Target className="w-7 h-7 text-primary-foreground" />
-        </div>
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-md shadow-primary/20 sm:hidden">
-              <Target className="w-5 h-5 text-primary-foreground" />
-            </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Rumo</h1>
-            {activityCount > 0 && (
-              <div className="ml-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20 flex items-center gap-1">
-                <Target className="w-3 h-3" />
-                {activityCount}
-              </div>
-            )}
           </div>
           <p className="text-muted-foreground text-sm mt-1">
             {currentUser ? `Olá, ${currentUser.name.split(" ")[0]}! ` : ""}

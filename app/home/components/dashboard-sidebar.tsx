@@ -49,11 +49,13 @@ export function DashboardSidebar({ tasks, completedTasks, customCategories, onRe
 
   return (
     <div className="space-y-8">
-      <SummarySection
-        dailySummary={dailySummary}
-        weeklySummary={weeklySummary}
-        customCategories={customCategories}
-      />
+      <div className="hidden xl:block">
+        <SummarySection
+          dailySummary={dailySummary}
+          weeklySummary={weeklySummary}
+          customCategories={customCategories}
+        />
+      </div>
 
       <section>
         <div className="flex items-center justify-between mb-4">

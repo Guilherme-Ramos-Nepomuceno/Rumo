@@ -1,6 +1,6 @@
 "use client";
 
-import type { Task, CustomCategory } from "./types";
+import type { Task, CustomCategory, ActivityRecord } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost/api/v1";
 
@@ -194,6 +194,14 @@ export const api = {
       });
       if (!response.ok) throw new Error("Erro ao excluir tarefa");
     },
+
+    async clearAll(): Promise<void> {
+      await ensureSync();
+      const response = await request("/tasks", {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Erro ao limpar dados");
+    },
   },
 
   categories: {
@@ -248,10 +256,13 @@ export const api = {
       const response = await request(`/stats/activity?${query}`);
       if (!response.ok) throw new Error("Erro ao carregar atividades");
       const json = await response.json();
-      return json.data.map((item: any) => ({
-        ...item,
-        date: new Date(item.date)
-      }));
+      return json.data.map((item: any) => {
+        const [year, month, day] = item.date.split("-").map(Number);
+        return {
+          ...item,
+          date: new Date(year, month - 1, day)
+        };
+      });
     },
 
     async performance(params: { month?: string; categoryId?: string } = {}): Promise<any[]> {
@@ -267,14 +278,19 @@ export const api = {
       const response = await request(`/stats/performance?${query}`);
       if (!response.ok) throw new Error("Erro ao carregar performance");
       const json = await response.json();
-      return json.data.map((item: any) => ({
-        date: new Date(item.date),
-        category: item.category,
-        expectedDifficulty: item.expected_difficulty,
-        actualDifficulty: item.actual_difficulty,
-        expectedSatisfaction: item.expected_satisfaction,
-        actualSatisfaction: item.actual_satisfaction
-      }));
+      return json.data.map((item: any) => {
+        const [year, month, day] = item.date.split("-").map(Number);
+        return {
+          id: item.id,
+          title: item.title,
+          date: new Date(year, month - 1, day),
+          category: item.category,
+          expectedDifficulty: item.expected_difficulty,
+          actualDifficulty: item.actual_difficulty,
+          expectedSatisfaction: item.expected_satisfaction,
+          actualSatisfaction: item.actual_satisfaction
+        };
+      });
     }
   },
 
@@ -301,6 +317,12 @@ export const api = {
         payload,
         timestamp: new Date().toISOString(),
       });
+
+      // ✅ Limita a fila a 100 items para evitar crescimento infinito
+      if (queue.length > 100) {
+        queue.shift();  // Remove o item mais antigo
+      }
+
       localStorage.setItem("rumo_syncQueue", JSON.stringify(queue));
     }
   }

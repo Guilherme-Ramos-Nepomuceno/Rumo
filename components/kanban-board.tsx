@@ -10,14 +10,14 @@ import { importanceConfig } from "@/lib/importance-config"
 import type { Task, CustomCategory } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import * as Icons from "lucide-react"
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef, useCallback, memo } from "react"
 
 interface KanbanBoardProps {
   pausedTasks: Task[]
   inProgressTasks: Task[]
   onViewDetails: (task: Task) => void
   onStartTask: (taskId: string) => void
-  onPauseTask: (taskId: string) => void
+  onPauseTask: (taskId: string, elapsedTime?: number) => void
   onCompleteTask: (taskId: string) => void
   onNextStep: (taskId: string) => void
   onReorder: (taskId: string, direction: "up" | "down", column: "paused" | "in-progress") => void
@@ -28,6 +28,228 @@ interface KanbanBoardProps {
   onDeleteSubtask?: (taskId: string, subtaskId: string) => void
   customCategories?: CustomCategory[]
 }
+
+interface TaskCardWrapperProps {
+  task: Task
+  index: number
+  tasksLength: number
+  column: "paused" | "in-progress"
+  isDragging: boolean
+  onDragOver: (e: React.DragEvent, index: number, column: "paused" | "in-progress") => void
+  onDragStart: (task: Task) => void
+  onDragEnd: () => void
+  onViewDetails: (task: Task) => void
+  onStartTask: (taskId: string) => void
+  onReorder: (taskId: string, direction: "up" | "down", column: "paused" | "in-progress") => void
+  onRevertToUpcoming?: (taskId: string) => void
+  onDeleteTask?: (taskId: string) => void
+  onAddSubtask?: (taskId: string, subtask: { title: string; estimatedTime: number }) => void
+  onDeleteSubtask?: (taskId: string, subtaskId: string) => void
+  customCategories?: CustomCategory[]
+  draggedTask: Task | null
+  dragOverIndex: number | null
+  dragOverColumn: "paused" | "in-progress" | null
+}
+
+function TaskCardWrapperComponent({
+  task,
+  index,
+  tasksLength,
+  column,
+  isDragging,
+  onDragOver,
+  onDragStart,
+  onDragEnd,
+  onViewDetails,
+  onStartTask,
+  onReorder,
+  onRevertToUpcoming,
+  onDeleteTask,
+  onAddSubtask,
+  onDeleteSubtask,
+  customCategories = [],
+  draggedTask,
+  dragOverIndex,
+  dragOverColumn,
+}: TaskCardWrapperProps) {
+  const handleDragOverCard = useCallback((e: React.DragEvent) => {
+    onDragOver(e, index, column)
+  }, [onDragOver, index, column])
+
+  const handleDragStartCard = useCallback(() => {
+    onDragStart(task)
+  }, [onDragStart, task])
+
+  const handleViewDetailsCard = useCallback(() => {
+    onViewDetails(task)
+  }, [onViewDetails, task])
+
+  const handleStartTaskCard = useCallback(() => {
+    onStartTask(task.id)
+  }, [onStartTask, task.id])
+
+  const handleReorderUpCard = useCallback(() => {
+    onReorder(task.id, "up", column)
+  }, [onReorder, task.id, column])
+
+  const handleReorderDownCard = useCallback(() => {
+    onReorder(task.id, "down", column)
+  }, [onReorder, task.id, column])
+
+  const handleRevertCard = useCallback(() => {
+    onRevertToUpcoming?.(task.id)
+  }, [onRevertToUpcoming, task.id])
+
+  const handleDeleteCard = useCallback(() => {
+    onDeleteTask?.(task.id)
+  }, [onDeleteTask, task.id])
+
+  const handleAddSubtaskCard = useCallback((st: { title: string; estimatedTime: number }) => {
+    onAddSubtask?.(task.id, st)
+  }, [onAddSubtask, task.id])
+
+  const handleDeleteSubtaskCard = useCallback((stid: string) => {
+    onDeleteSubtask?.(task.id, stid)
+  }, [onDeleteSubtask, task.id])
+
+  return (
+    <div key={task.id} onDragOver={handleDragOverCard}>
+      {draggedTask && dragOverIndex === index && dragOverColumn === column && draggedTask.id !== task.id && (
+        <div className="h-32 mb-3 border-2 border-dashed border-muted-foreground/30 rounded-xl bg-muted/20" />
+      )}
+      <KanbanCard
+        task={task}
+        showUp={index > 0}
+        showDown={index < tasksLength - 1}
+        isDragging={isDragging}
+        onDragStart={handleDragStartCard}
+        onDragEnd={onDragEnd}
+        onViewDetails={handleViewDetailsCard}
+        onStart={handleStartTaskCard}
+        onReorderUp={handleReorderUpCard}
+        onReorderDown={handleReorderDownCard}
+        onRevertToUpcoming={handleRevertCard}
+        onDelete={handleDeleteCard}
+        onAddSubtask={handleAddSubtaskCard}
+        onDeleteSubtask={handleDeleteSubtaskCard}
+        customCategories={customCategories}
+      />
+    </div>
+  )
+}
+
+const TaskCardWrapper = memo(TaskCardWrapperComponent)
+
+interface TaskCardWrapperInProgressProps extends Omit<TaskCardWrapperProps, "onStartTask"> {
+  hasMoreSteps: boolean
+  onPauseTask: (taskId: string, elapsedTime?: number) => void
+  onCompleteTask: (taskId: string) => void
+  onNextStep: (taskId: string) => void
+}
+
+function TaskCardWrapperInProgressComponent({
+  task,
+  index,
+  tasksLength,
+  column,
+  isDragging,
+  onDragOver,
+  onDragStart,
+  onDragEnd,
+  onViewDetails,
+  onPauseTask,
+  onCompleteTask,
+  onNextStep,
+  onReorder,
+  onRevertToUpcoming,
+  onDeleteTask,
+  onAddSubtask,
+  onDeleteSubtask,
+  customCategories = [],
+  draggedTask,
+  dragOverIndex,
+  dragOverColumn,
+  hasMoreSteps,
+}: TaskCardWrapperInProgressProps) {
+  const handleDragOverCard = useCallback((e: React.DragEvent) => {
+    onDragOver(e, index, column)
+  }, [onDragOver, index, column])
+
+  const handleDragStartCard = useCallback(() => {
+    onDragStart(task)
+  }, [onDragStart, task])
+
+  const handleViewDetailsCard = useCallback(() => {
+    onViewDetails(task)
+  }, [onViewDetails, task])
+
+  const handlePauseCard = useCallback((elapsed: number) => {
+    onPauseTask(task.id, elapsed)
+  }, [onPauseTask, task.id])
+
+  const handleCompleteCard = useCallback(() => {
+    onCompleteTask(task.id)
+  }, [onCompleteTask, task.id])
+
+  const handleNextStepCard = useCallback(() => {
+    onNextStep(task.id)
+  }, [onNextStep, task.id])
+
+  const handleReorderUpCard = useCallback(() => {
+    onReorder(task.id, "up", column)
+  }, [onReorder, task.id, column])
+
+  const handleReorderDownCard = useCallback(() => {
+    onReorder(task.id, "down", column)
+  }, [onReorder, task.id, column])
+
+  const handleRevertCard = useCallback(() => {
+    onRevertToUpcoming?.(task.id)
+  }, [onRevertToUpcoming, task.id])
+
+  const handleDeleteCard = useCallback(() => {
+    onDeleteTask?.(task.id)
+  }, [onDeleteTask, task.id])
+
+  const handleAddSubtaskCard = useCallback((st: { title: string; estimatedTime: number }) => {
+    onAddSubtask?.(task.id, st)
+  }, [onAddSubtask, task.id])
+
+  const handleDeleteSubtaskCard = useCallback((stid: string) => {
+    onDeleteSubtask?.(task.id, stid)
+  }, [onDeleteSubtask, task.id])
+
+  return (
+    <div onDragOver={handleDragOverCard}>
+      {draggedTask && dragOverIndex === index && dragOverColumn === column && draggedTask.id !== task.id && (
+        <div className="h-32 mb-3 border-2 border-dashed border-muted-foreground/30 rounded-xl bg-muted/20" />
+      )}
+      <KanbanCard
+        task={task}
+        isActive
+        showUp={index > 0}
+        showDown={index < tasksLength - 1}
+        isDragging={isDragging}
+        hasMoreSteps={hasMoreSteps}
+        onDragStart={handleDragStartCard}
+        onDragEnd={onDragEnd}
+        onViewDetails={handleViewDetailsCard}
+        onPause={handlePauseCard}
+        onComplete={handleCompleteCard}
+        onNextStep={hasMoreSteps ? handleNextStepCard : undefined}
+        onReorderUp={handleReorderUpCard}
+        onReorderDown={handleReorderDownCard}
+        onRevertToUpcoming={handleRevertCard}
+        onDelete={handleDeleteCard}
+        onAddSubtask={handleAddSubtaskCard}
+        onDeleteSubtask={handleDeleteSubtaskCard}
+        customCategories={customCategories}
+      />
+    </div>
+  )
+}
+
+const TaskCardWrapperInProgress = memo(TaskCardWrapperInProgressComponent)
 
 export function KanbanBoard({
   pausedTasks,
@@ -91,31 +313,28 @@ export function KanbanBoard({
           }}
         >
           {pausedTasks.map((task, index) => (
-            <div
+            <TaskCardWrapper
               key={task.id}
-              onDragOver={(e) => handleDragOver(e, index, "paused")}
-            >
-              {draggedTask && dragOverIndex === index && dragOverColumn === "paused" && draggedTask.id !== task.id && (
-                <div className="h-32 mb-3 border-2 border-dashed border-muted-foreground/30 rounded-xl bg-muted/20" />
-              )}
-              <KanbanCard
-                task={task}
-                showUp={index > 0}
-                showDown={index < pausedTasks.length - 1}
-                isDragging={draggedTask?.id === task.id}
-                onDragStart={() => handleDragStart(task)}
-                onDragEnd={handleDragEnd}
-                onViewDetails={() => onViewDetails(task)}
-                onStart={() => onStartTask(task.id)}
-                onReorderUp={() => onReorder(task.id, "up", "paused")}
-                onReorderDown={() => onReorder(task.id, "down", "paused")}
-                onRevertToUpcoming={onRevertToUpcoming ? () => onRevertToUpcoming(task.id) : undefined}
-                onDelete={onDeleteTask ? () => onDeleteTask(task.id) : undefined}
-                onAddSubtask={onAddSubtask ? (st) => onAddSubtask(task.id, st) : undefined}
-                onDeleteSubtask={onDeleteSubtask ? (stid) => onDeleteSubtask(task.id, stid) : undefined}
-                customCategories={customCategories}
-              />
-            </div>
+              task={task}
+              index={index}
+              tasksLength={pausedTasks.length}
+              column="paused"
+              isDragging={draggedTask?.id === task.id}
+              onDragOver={handleDragOver}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onViewDetails={onViewDetails}
+              onStartTask={onStartTask}
+              onReorder={onReorder}
+              onRevertToUpcoming={onRevertToUpcoming}
+              onDeleteTask={onDeleteTask}
+              onAddSubtask={onAddSubtask}
+              onDeleteSubtask={onDeleteSubtask}
+              customCategories={customCategories}
+              draggedTask={draggedTask}
+              dragOverIndex={dragOverIndex}
+              dragOverColumn={dragOverColumn}
+            />
           ))}
           {pausedTasks.length === 0 && draggedTask && dragOverColumn === "paused" && (
             <div
@@ -154,35 +373,30 @@ export function KanbanBoard({
               task.currentSubtaskIndex < task.subtasks.length - 1
 
             return (
-              <div
+              <TaskCardWrapperInProgress
                 key={task.id}
-                onDragOver={(e) => handleDragOver(e, index, "in-progress")}
-              >
-                {draggedTask && dragOverIndex === index && dragOverColumn === "in-progress" && draggedTask.id !== task.id && (
-                  <div className="h-32 mb-3 border-2 border-dashed border-muted-foreground/30 rounded-xl bg-muted/20" />
-                )}
-                <KanbanCard
-                  task={task}
-                  isActive
-                  showUp={index > 0}
-                  showDown={index < inProgressTasks.length - 1}
-                  isDragging={draggedTask?.id === task.id}
-                  hasMoreSteps={hasMoreSteps}
-                  onDragStart={() => handleDragStart(task)}
-                  onDragEnd={handleDragEnd}
-                  onViewDetails={() => onViewDetails(task)}
-                  onPause={() => onPauseTask(task.id)}
-                  onComplete={() => onCompleteTask(task.id)}
-                  onNextStep={hasMoreSteps ? () => onNextStep(task.id) : undefined}
-                  onReorderUp={() => onReorder(task.id, "up", "in-progress")}
-                  onReorderDown={() => onReorder(task.id, "down", "in-progress")}
-                  onRevertToUpcoming={onRevertToUpcoming ? () => onRevertToUpcoming(task.id) : undefined}
-                  onDelete={onDeleteTask ? () => onDeleteTask(task.id) : undefined}
-                  onAddSubtask={onAddSubtask ? (st) => onAddSubtask(task.id, st) : undefined}
-                  onDeleteSubtask={onDeleteSubtask ? (stid) => onDeleteSubtask(task.id, stid) : undefined}
-                  customCategories={customCategories}
-                />
-              </div>
+                task={task}
+                index={index}
+                tasksLength={inProgressTasks.length}
+                isDragging={draggedTask?.id === task.id}
+                hasMoreSteps={hasMoreSteps}
+                onDragOver={handleDragOver}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onViewDetails={onViewDetails}
+                onPauseTask={onPauseTask}
+                onCompleteTask={onCompleteTask}
+                onNextStep={onNextStep}
+                onReorder={onReorder}
+                onRevertToUpcoming={onRevertToUpcoming}
+                onDeleteTask={onDeleteTask}
+                onAddSubtask={onAddSubtask}
+                onDeleteSubtask={onDeleteSubtask}
+                customCategories={customCategories}
+                draggedTask={draggedTask}
+                dragOverIndex={dragOverIndex}
+                dragOverColumn={dragOverColumn}
+              />
             )
           })}
           {inProgressTasks.length === 0 && draggedTask && dragOverColumn === "in-progress" && (
@@ -211,7 +425,7 @@ interface KanbanCardProps {
   onDragEnd?: () => void
   onViewDetails: () => void
   onStart?: () => void
-  onPause?: () => void
+  onPause?: (elapsedTime: number) => void
   onComplete?: () => void
   onNextStep?: () => void
   onReorderUp?: () => void
@@ -223,7 +437,7 @@ interface KanbanCardProps {
   customCategories?: CustomCategory[]
 }
 
-function KanbanCard({
+function KanbanCardComponent({
   task,
   isActive = false,
   showUp,
@@ -285,16 +499,25 @@ function KanbanCard({
     setter(e.target.value.replace(/\D/g, ""))
   }
 
+  const startTimeRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (!isActive) {
-      // Reset to task's elapsed time when not active
       setElapsedTime(task.elapsedTime || 0)
+      startTimeRef.current = null
       return
     }
 
+    // Initialize start time when task becomes active
+    if (startTimeRef.current === null) {
+      startTimeRef.current = Date.now() - (task.elapsedTime || 0) * 1000
+    }
+
+    // Update timer every 2 seconds instead of 1 to reduce re-renders
     const interval = setInterval(() => {
-      setElapsedTime((prev) => prev + 1)
-    }, 1000)
+      const elapsedSeconds = Math.floor((Date.now() - (startTimeRef.current || 0)) / 1000)
+      setElapsedTime(elapsedSeconds)
+    }, 2000)
 
     return () => clearInterval(interval)
   }, [isActive, task.elapsedTime])
@@ -568,7 +791,7 @@ function KanbanCard({
 
         <div className="space-y-3 pt-1 border-t border-border/5">
           {/* Time metrics */}
-          <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium uppercase tracking-tight">
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium uppercase tracking-tight flex-wrap">
             {task.estimatedTime && (
               <div className="flex items-center gap-1">
                 <Timer className="w-3 h-3 text-primary/50" />
@@ -606,7 +829,7 @@ function KanbanCard({
               </Button>
             ) : (
               <>
-                <Button onClick={onPause} size="sm" variant="secondary" className="flex-1 h-8 font-bold text-[10px] tracking-wider uppercase">
+                <Button onClick={() => onPause?.(elapsedTime)} size="sm" variant="secondary" className="flex-1 h-8 font-bold text-[10px] tracking-wider uppercase">
                   <Pause className="w-3 h-3 mr-1 fill-current" />
                   Pausar
                 </Button>
@@ -629,3 +852,5 @@ function KanbanCard({
     </Card>
   )
 }
+
+const KanbanCard = memo(KanbanCardComponent)
