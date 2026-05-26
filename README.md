@@ -11,7 +11,7 @@
 
 ---
 
-## 🚀 Quick Start (Copy-Paste)
+## Quick Start
 
 Inicie o projeto localmente em menos de 2 minutos:
 
@@ -28,7 +28,7 @@ O projeto estará disponível em `http://localhost:3000`.
 
 ---
 
-## 🏗️ Architecture Graph
+## Architecture
 
 A arquitetura do Rumo segue o padrão do Next.js App Router, com separação clara entre a lógica de persistência local e os componentes de interface.
 
@@ -55,7 +55,7 @@ graph TD
 
 ---
 
-## 🔗 Environment Variables
+## Environment Variables
 
 O projeto utiliza integração com o backend de API Laravel para sincronização centralizada e offline-first.
 
@@ -66,7 +66,7 @@ O projeto utiliza integração com o backend de API Laravel para sincronização
 
 ---
 
-## 📂 Index de Funcionalidades
+## Features
 
 Abaixo estão os links para as documentações específicas de cada módulo principal:
 
@@ -76,7 +76,7 @@ Abaixo estão os links para as documentações específicas de cada módulo prin
 
 ---
 
-### 🛠️ Stack Tecnológica
+### Stack Tecnológica
 
 - **Core**: Next.js 16, React 19, TypeScript.
 - **UI/UX**: Tailwind CSS 4, Radix UI, Framer Motion (Transições Fluidas).

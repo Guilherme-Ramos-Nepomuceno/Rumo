@@ -158,7 +158,7 @@ export function TaskCard({
                 <Info className="w-4 h-4" />
               </Button>
 
-              <div className="h-4 w-[1px] bg-border mx-1" />
+              <div className="h-4 w-px bg-border mx-1" />
 
               {task.status === "pending" && onStart && (
                 <Button

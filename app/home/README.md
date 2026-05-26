@@ -1,10 +1,10 @@
-# 🏠 Dashboard de Controle (Home)
+# Dashboard de Controle (Home)
 
 O módulo **Home** é o centro nevrálgico do Rumo, onde as tarefas ativas são gerenciadas e o progresso diário é visualizado em tempo real.
 
 ---
 
-## 🛠️ Especificações Técnicas
+## Especificações Técnicas
 
 Este módulo é composto por uma orquestração de componentes reativos que se comunicam através do estado local (React State) e se sincronizam com o `localStorage`.
 
@@ -54,7 +54,7 @@ Este módulo é composto por uma orquestração de componentes reativos que se c
 
 ---
 
-## 📋 Regras de Negócio (Lógica de Execução)
+## Regras de Negócio (Lógica de Execução)
 
 A gestão de tarefas e estatísticas segue um fluxo rigoroso de ciclo de vida e consistência:
 
@@ -65,7 +65,7 @@ A gestão de tarefas e estatísticas segue um fluxo rigoroso de ciclo de vida e 
 - **Repetição**: Tarefas concluídas podem ser clonadas instantaneamente, criando um novo registro com status `pending` e IDs únicos.
 - **Limpeza de Dados**: A ação "Limpar Todos os Dados" remove localmente todos os registros de tarefas e emite um comando de deleção em massa ao banco de dados, expurgando de forma irreversível todas as tarefas, sub-tarefas e estatísticas do usuário autenticado.
 
-### 🕒 Reatividade Estatística e Fuso Horário (Timezone)
+### Reatividade Estatística e Fuso Horário (Timezone)
 
 - **Correção de Timezone**: Para evitar deslocamentos de dias causados por fusos horários locais em relação às strings UTC fornecidas pelo backend (ex: `"2026-05-26"` parsed em UTC torna-se `25/05` no fuso de Brasília), a camada de rede do Next.js analisa as datas usando decomposição de string local (`item.date.split("-")`), instanciando `new Date(year, month - 1, day)`. Isso garante exatidão de 100% no calendário e nos gráficos.
 - **Reatividade Automática**: Ao salvar um formulário de conclusão de tarefa via `handleCompletionSubmit()`, o sistema dispara em segundo plano o recarregamento das métricas de atividade (`fetchActivityData`) e performance (`fetchPerformanceData`) baseado nos filtros atuais já aplicados nos cards do dashboard, eliminando qualquer necessidade de reload de página.
@@ -73,7 +73,7 @@ A gestão de tarefas e estatísticas segue um fluxo rigoroso de ciclo de vida e 
 
 ---
 
-## 🔌 API & Eventos Consumidos
+## API & Eventos Consumidos
 
 O módulo sincroniza com a API Laravel do **Rumo Backend** através dos seguintes endpoints e disparadores:
 

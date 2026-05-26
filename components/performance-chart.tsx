@@ -65,7 +65,7 @@ const CustomChartTooltip = ({ active, payload, label, isDifficulty, groupBy }: a
   }
   
   return (
-    <div className="bg-slate-950/95 border border-slate-800/80 rounded-xl p-2 shadow-2xl text-[9px] sm:text-xs text-white max-w-[130px] xs:max-w-[165px] sm:max-w-[260px] backdrop-blur-md z-50 pointer-events-none break-words">
+    <div className="bg-slate-950/95 border border-slate-800/80 rounded-xl p-2 shadow-2xl text-[9px] sm:text-xs text-white max-w-32.5 xs:max-w-[165px] sm:max-w-65 backdrop-blur-md z-50 pointer-events-none wrap-break-word">
       <p className="font-extrabold text-slate-300 leading-tight mb-1 truncate">
         {title ? title : formattedDate}
       </p>
@@ -543,7 +543,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Categoria</Label>
               <Select value={selectedCategory} onValueChange={(v) => setSelectedCategory(v as Category | "all")}>
-                <SelectTrigger className="w-[150px] bg-background hover:bg-background/80 border-border">
+                <SelectTrigger className="w-37.5 bg-background hover:bg-background/80 border-border">
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
@@ -560,7 +560,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Período</Label>
               <Select value={timeView} onValueChange={(v) => setTimeView(v as TimeView)}>
-                <SelectTrigger className="w-[120px] bg-background border-border">
+                <SelectTrigger className="w-30 bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -579,7 +579,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                   <Button
                     variant={"outline"}
                     className={cn(
-                      "w-[150px] justify-start text-left font-normal bg-background border-border",
+                      "w-37.5 justify-start text-left font-normal bg-background border-border",
                       !selectedMonth && "text-muted-foreground"
                     )}
                   >
@@ -620,7 +620,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                     <Button
                       variant={"outline"}
                       className={cn(
-                        "w-[150px] justify-start text-left font-normal bg-background border-border",
+                        "w-37.5 justify-start text-left font-normal bg-background border-border",
                         !compareMonth && "text-muted-foreground"
                       )}
                     >
@@ -644,7 +644,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
 
         {/* Dynamic Empty State vs Chart Grid */}
         {chartData.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-6 border-2 border-dashed border-border/70 rounded-2xl bg-muted/5 min-h-[350px] text-center space-y-5 animate-in fade-in duration-300">
+          <div className="flex flex-col items-center justify-center py-16 px-6 border-2 border-dashed border-border/70 rounded-2xl bg-muted/5 min-h-87.5 text-center space-y-5 animate-in fade-in duration-300">
             <div className="p-4 bg-primary/10 rounded-full text-primary shadow-inner border border-primary/20 relative">
               <GitCompare className="h-8 w-8 stroke-[1.5]" />
             </div>
@@ -745,7 +745,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                               {stats.difficulty.overPct.toFixed(0)}/{stats.difficulty.exactPct.toFixed(0)}/{stats.difficulty.underPct.toFixed(0)}%
                             </span>
                           </PopoverTrigger>
-                          <PopoverContent side="top" className="max-w-[250px] p-2.5 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-xl rounded-xl z-[100] w-auto">
+                          <PopoverContent side="top" className="max-w-62.5 p-2.5 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-xl rounded-xl z-100 w-auto">
                             Percepção: <strong>{stats.difficulty.overPct.toFixed(0)}% Superestimado</strong> / <strong>{stats.difficulty.exactPct.toFixed(0)}% Alinhado</strong> / <strong>{stats.difficulty.underPct.toFixed(0)}% Subestimado</strong> das tarefas.
                           </PopoverContent>
                         </Popover>
@@ -787,7 +787,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                                 <Info className="h-3 w-3" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[280px] p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-[100]">
+                            <TooltipContent side="top" className="max-w-70 p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-100">
                               Mede a <strong>magnitude média do erro</strong> de suas estimativas por tarefa (para mais ou para menos). Quanto menor o valor, mais precisas são suas projeções de esforço.
                             </TooltipContent>
                           </UITooltip>
@@ -803,7 +803,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                                 <Info className="h-3 w-3" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[280px] p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-[100]">
+                            <TooltipContent side="top" className="max-w-70 p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-100">
                               Indica a <strong>direção constante do seu erro</strong> (frequentemente chamado de <em>'Bias'</em>). Valores positivos (+) indicam subestimação (a realidade foi mais difícil). Valores negativos (-) indicam superestimação (a realidade foi mais fácil).
                             </TooltipContent>
                           </UITooltip>
@@ -843,7 +843,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                               {stats.satisfaction.underPct.toFixed(0)}/{stats.satisfaction.exactPct.toFixed(0)}/{stats.satisfaction.overPct.toFixed(0)}%
                             </span>
                           </PopoverTrigger>
-                          <PopoverContent side="top" className="max-w-[250px] p-2.5 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-xl rounded-xl z-[100] w-auto">
+                          <PopoverContent side="top" className="max-w-62.5 p-2.5 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-xl rounded-xl z-100 w-auto">
                             Expectativa: <strong>{stats.satisfaction.underPct.toFixed(0)}% Frustrado</strong> / <strong>{stats.satisfaction.exactPct.toFixed(0)}% Alinhado</strong> / <strong>{stats.satisfaction.overPct.toFixed(0)}% Surpresa Positiva</strong> das tarefas.
                           </PopoverContent>
                         </Popover>
@@ -885,7 +885,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                                 <Info className="h-3 w-3" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[280px] p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-[100]">
+                            <TooltipContent side="top" className="max-w-70 p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-100">
                               Mede a <strong>magnitude média do erro</strong> de suas estimativas por tarefa (para mais ou para menos). Quanto menor o valor, mais precisas são suas projeções de satisfação.
                             </TooltipContent>
                           </UITooltip>
@@ -901,7 +901,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                                 <Info className="h-3 w-3" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[280px] p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-[100]">
+                            <TooltipContent side="top" className="max-w-70 p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-100">
                               Indica a <strong>direção constante do seu erro</strong> (frequentemente chamado de <em>'Bias'</em>). Valores positivos (+) indicam subestimação (a realidade foi mais satisfatória). Valores negativos (-) indicam superestimação (a realidade foi menos satisfatória).
                             </TooltipContent>
                           </UITooltip>
@@ -927,7 +927,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                     Dificuldade
                   </h4>
                 </div>
-                <div className="w-full min-h-[180px] sm:min-h-[300px]">
+                <div className="w-full min-h-45 sm:min-h-75">
                   <ResponsiveContainer width="100%" height={200}>
                     {chartType === "lines" ? (
                       <LineChart 
@@ -1077,7 +1077,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                     Satisfação
                   </h4>
                 </div>
-                <div className="w-full min-h-[180px] sm:min-h-[300px]">
+                <div className="w-full min-h-45 sm:min-h-75">
                   <ResponsiveContainer width="100%" height={200}>
                     {chartType === "lines" ? (
                       <LineChart 

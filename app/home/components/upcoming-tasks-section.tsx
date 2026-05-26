@@ -31,7 +31,7 @@ export function UpcomingTasksSection({ tasks, customCategories, onViewDetails, o
               <Plus className="w-6 h-6 text-muted-foreground" />
             </div>
             <h3 className="text-lg font-medium text-foreground mb-1">Nenhum objetivo pendente</h3>
-            <p className="text-sm text-muted-foreground max-w-[280px] mx-auto">
+            <p className="text-sm text-muted-foreground max-w-70 mx-auto">
               Sua lista de objetivos está vazia. Comece criando uma nova atividade para acompanhar seu progresso.
             </p>
           </div>

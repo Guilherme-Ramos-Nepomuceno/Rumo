@@ -93,6 +93,7 @@ async function request(path: string, options: RequestInit = {}) {
   const headers = await getAuthHeaders();
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
+    credentials: 'include',
     headers: {
       ...headers,
       ...options.headers,
