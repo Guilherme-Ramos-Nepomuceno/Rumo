@@ -141,7 +141,7 @@ export function TaskDetailModal({
                       )}
                     >
                       <span className={cn(
-                        "flex-shrink-0 w-8 h-8 rounded-full text-xs flex items-center justify-center font-bold",
+                        "shrink-0 w-8 h-8 rounded-full text-xs flex items-center justify-center font-bold",
                         isCompleted ? "bg-primary text-white" : "bg-muted-foreground/10 text-muted-foreground"
                       )}>
                         {isCompleted ? <Icons.Check className="w-4 h-4" /> : index + 1}

@@ -56,7 +56,7 @@ function ActivityBlockTooltipContent({
   const countText = block.count > 0 ? `${block.count} atividade${block.count > 1 ? "s" : ""}` : "Sem atividades concluídas"
 
   return (
-    <div className="space-y-2.5 max-w-[280px] p-1 select-none">
+    <div className="space-y-2.5 max-w-70 p-1 select-none">
       <p className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
         {dateStr}
       </p>
@@ -94,6 +94,15 @@ function ActivityBlockTooltipContent({
       )}
     </div>
   )
+}
+
+type ProjectedTask = {
+  category: string
+  completedAt?: Date
+  title: string
+  elapsedTime?: number
+  startTime?: string
+  endTime?: string
 }
 
 interface ActivityTrackerProps {
@@ -178,13 +187,13 @@ function ActivityTrackerComponent({
 
   // Mathematically precise calendar and timeline block builder
   const { blocks, maxCount } = useMemo(() => {
-    const blocks: { 
-      date: Date; 
-      count: number; 
-      label: string; 
-      categories?: Category[]; 
+    const blocks: {
+      date: Date;
+      count: number;
+      label: string;
+      categories?: Category[];
       isPlaceholder?: boolean;
-      completedTasks?: Task[];
+      completedTasks?: ProjectedTask[];
       openTasks?: Task[];
     }[] = []
     let maxCount = 0
@@ -721,7 +730,7 @@ function ActivityTrackerComponent({
 
           <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
             <Select value={timeView} onValueChange={(value) => setTimeView(value as TimeView)}>
-              <SelectTrigger className="w-full sm:w-[130px] bg-background border-border">
+              <SelectTrigger className="w-full sm:w-32.5 bg-background border-border">
                 <SelectValue placeholder="Semana" />
               </SelectTrigger>
               <SelectContent>
@@ -734,7 +743,7 @@ function ActivityTrackerComponent({
             </Select>
 
             <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as Category | "all")}>
-              <SelectTrigger className="w-full sm:w-[170px] bg-background border-border">
+              <SelectTrigger className="w-full sm:w-42.5 bg-background border-border">
                 <SelectValue placeholder="Todas Categorias" />
               </SelectTrigger>
               <SelectContent className="max-h-60">
@@ -786,7 +795,7 @@ function ActivityTrackerComponent({
         </div>
 
         {/* Dynamic Multi-View Grid Rendering */}
-        <div className="overflow-visible pb-4 pt-6 relative px-4 w-full max-w-full overflow-x-auto hide-scrollbar bg-muted/5 rounded-2xl border border-border/20 shadow-inner flex items-center justify-start xl:justify-center min-h-[180px]">
+        <div className="overflow-visible pb-4 pt-6 relative px-4 w-full max-w-full overflow-x-auto hide-scrollbar bg-muted/5 rounded-2xl border border-border/20 shadow-inner flex items-center justify-start xl:justify-center min-h-45">
           <TooltipProvider>
             
             {/* 1. Year and Semester View: Sleek 7-Row GitHub Contribution Calendar */}
@@ -807,7 +816,7 @@ function ActivityTrackerComponent({
                 
                 <div className="flex gap-2">
                   {/* Left Weekdays indicator */}
-                  <div className="flex flex-col justify-between text-[10px] font-bold text-muted-foreground/60 pr-2 h-[129px] py-0.5 select-none text-right w-6">
+                  <div className="flex flex-col justify-between text-[10px] font-bold text-muted-foreground/60 pr-2 h-32.25 py-0.5 select-none text-right w-6">
                     <span>Dom</span>
                     <span className="opacity-0">Seg</span>
                     <span>Ter</span>
@@ -819,7 +828,7 @@ function ActivityTrackerComponent({
                   
                   {/* GitHub Style 7-Row Grid with column first layout flow */}
                   <div 
-                    className="grid grid-rows-7 grid-flow-col gap-[4px] h-[129px] select-none animate-in fade-in duration-350"
+                    className="grid grid-rows-7 grid-flow-col gap-1 h-32.25 select-none animate-in fade-in duration-350"
                     style={{ gridTemplateColumns: `repeat(${Math.ceil(blocks.length / 7)}, 15px)` }}
                   >
                     {blocks.map((block, index) => (
@@ -831,7 +840,7 @@ function ActivityTrackerComponent({
                           >
                             <div
                               className={cn(
-                                "w-[15px] h-[15px] rounded-[3.5px] transition-all duration-200 hover:scale-130 hover:shadow-md hover:ring-2 hover:ring-ring focus-visible:ring-2 relative",
+                                "w-3.75 h-3.75 rounded-[3.5px] transition-all duration-200 hover:scale-130 hover:shadow-md hover:ring-2 hover:ring-ring focus-visible:ring-2 relative",
                                 block.count > 0 && "active:scale-95"
                               )}
                               style={getBlockStyle(block)}
@@ -845,7 +854,7 @@ function ActivityTrackerComponent({
                           </div>
                         </TooltipTrigger>
                         
-                        <TooltipContent side="top" sideOffset={6} className="bg-popover text-popover-foreground border border-border shadow-2xl rounded-xl p-3 max-w-[280px] z-50">
+                        <TooltipContent side="top" sideOffset={6} className="bg-popover text-popover-foreground border border-border shadow-2xl rounded-xl p-3 max-w-70 z-50">
                           <ActivityBlockTooltipContent 
                             block={block} 
                             customCategories={customCategories} 
@@ -900,7 +909,7 @@ function ActivityTrackerComponent({
                       </TooltipTrigger>
 
                       {!block.isPlaceholder && (
-                        <TooltipContent side="top" sideOffset={6} className="bg-popover text-popover-foreground border border-border shadow-2xl rounded-xl p-3 max-w-[280px] z-50">
+                        <TooltipContent side="top" sideOffset={6} className="bg-popover text-popover-foreground border border-border shadow-2xl rounded-xl p-3 max-w-70 z-50">
                           <ActivityBlockTooltipContent 
                             block={block} 
                             customCategories={customCategories} 
@@ -922,7 +931,7 @@ function ActivityTrackerComponent({
                     <Tooltip key={index} open={clickedBlock === index ? true : undefined} onOpenChange={(o) => !o && clickedBlock === index && setClickedBlock(null)} delayDuration={100}>
                       <TooltipTrigger asChild>
                         <div
-                          className="relative aspect-[3/4] sm:aspect-square w-full cursor-pointer select-none group"
+                          className="relative aspect-3/4 sm:aspect-square w-full cursor-pointer select-none group"
                           onClick={() => setClickedBlock(clickedBlock === index ? null : index)}
                         >
                           <div
@@ -946,7 +955,7 @@ function ActivityTrackerComponent({
                         </div>
                       </TooltipTrigger>
 
-                      <TooltipContent side="top" sideOffset={6} className="bg-popover text-popover-foreground border border-border shadow-2xl rounded-xl p-3 max-w-[280px] z-50">
+                      <TooltipContent side="top" sideOffset={6} className="bg-popover text-popover-foreground border border-border shadow-2xl rounded-xl p-3 max-w-70 z-50">
                         <ActivityBlockTooltipContent 
                           block={block} 
                           customCategories={customCategories} 
@@ -970,7 +979,7 @@ function ActivityTrackerComponent({
                   </div>
                   
                   {/* Timeline Bar */}
-                  <div className="grid grid-cols-24 gap-[4px] h-[34px] w-full select-none">
+                  <div className="grid grid-cols-24 gap-1 h-8.5 w-full select-none">
                     {blocks.map((block, index) => {
                       const cTasks = block.completedTasks || []
                       const oTasks = block.openTasks || []
@@ -992,7 +1001,7 @@ function ActivityTrackerComponent({
                             </div>
                           </TooltipTrigger>
                           
-                          <TooltipContent side="top" sideOffset={6} className="bg-popover text-popover-foreground border border-border shadow-2xl rounded-xl p-3 max-w-[280px] z-50">
+                          <TooltipContent side="top" sideOffset={6} className="bg-popover text-popover-foreground border border-border shadow-2xl rounded-xl p-3 max-w-70 z-50">
                             <div className="space-y-2">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                                 {block.label} - {block.date.toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}
@@ -1011,7 +1020,7 @@ function ActivityTrackerComponent({
                                         : "0 min"
                                       return (
                                         <div key={idx} className="flex items-center justify-between text-xs bg-muted/15 p-1 px-2 rounded border border-border/30">
-                                          <span className="font-semibold truncate max-w-[150px]">{t.title}</span>
+                                          <span className="font-semibold truncate max-w-37.5">{t.title}</span>
                                           <span 
                                             className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white flex items-center gap-1"
                                             style={{ backgroundColor: getCategoryColor(t.category) }}
@@ -1039,7 +1048,7 @@ function ActivityTrackerComponent({
                                       return (
                                         <div key={idx} className="flex flex-col gap-0.5 bg-muted/10 p-1.5 rounded border border-dashed border-border/60">
                                           <div className="flex items-center justify-between text-xs">
-                                            <span className="font-semibold truncate max-w-[150px]">{t.title}</span>
+                                            <span className="font-semibold truncate max-w-37.5">{t.title}</span>
                                             <span 
                                               className="text-[9px] font-bold px-1.5 py-0.2 rounded"
                                               style={{ 
@@ -1071,7 +1080,7 @@ function ActivityTrackerComponent({
                   </div>
 
                   {/* Hourly Indicators */}
-                  <div className="grid grid-cols-24 gap-[4px] text-[8px] font-black text-muted-foreground/75 text-center select-none pt-1">
+                  <div className="grid grid-cols-24 gap-1 text-[8px] font-black text-muted-foreground/75 text-center select-none pt-1">
                     {blocks.map((block, idx) => (
                       <span key={idx} className={idx % 4 === 0 ? "opacity-100" : "opacity-0"}>
                         {idx}h
@@ -1089,13 +1098,13 @@ function ActivityTrackerComponent({
         {timeView !== "day" && (
           <div className="flex items-center gap-3 text-xs text-muted-foreground justify-center border-t border-border/30 pt-4 pb-1">
             <span className="font-semibold">Menos Atividade</span>
-            <div className="flex gap-[4px] items-center select-none">
+            <div className="flex gap-1 items-center select-none">
               <div
-                className="w-5 h-5 rounded-[4px] border border-border/10 bg-muted/10"
+                className="w-5 h-5 rounded-lg border border-border/10 bg-muted/10"
                 title="Sem atividades"
               />
               <div
-                className="w-5 h-5 rounded-[4px] hover:scale-110 transition-transform"
+                className="w-5 h-5 rounded-lg hover:scale-110 transition-transform"
                 style={{
                   backgroundColor: getCategoryColor(),
                   opacity: 0.25,
@@ -1103,7 +1112,7 @@ function ActivityTrackerComponent({
                 title="Nível 1 de atividades"
               />
               <div
-                className="w-5 h-5 rounded-[4px] hover:scale-110 transition-transform"
+                className="w-5 h-5 rounded-lg hover:scale-110 transition-transform"
                 style={{
                   backgroundColor: getCategoryColor(),
                   opacity: 0.5,
@@ -1111,7 +1120,7 @@ function ActivityTrackerComponent({
                 title="Nível 2 de atividades"
               />
               <div
-                className="w-5 h-5 rounded-[4px] hover:scale-110 transition-transform"
+                className="w-5 h-5 rounded-lg hover:scale-110 transition-transform"
                 style={{
                   backgroundColor: getCategoryColor(),
                   opacity: 0.75,
@@ -1119,7 +1128,7 @@ function ActivityTrackerComponent({
                 title="Nível 3 de atividades"
               />
               <div
-                className="w-5 h-5 rounded-[4px] hover:scale-110 transition-transform"
+                className="w-5 h-5 rounded-lg hover:scale-110 transition-transform"
                 style={{
                   backgroundColor: getCategoryColor(),
                   opacity: 1,

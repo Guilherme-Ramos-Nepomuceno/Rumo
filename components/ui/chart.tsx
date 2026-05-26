@@ -69,6 +69,12 @@ function ChartContainer({
   )
 }
 
+const isValidCSSColor = (color: string): boolean => {
+  if (!color || typeof color !== 'string') return false
+  // Allow hex colors, rgb, rgba, hsl, hsla, and named colors
+  return /^(#[0-9a-f]{3}([0-9a-f]{3})?|rgb(a)?\([^)]*\)|hsl(a)?\([^)]*\)|[a-z]+)$/i.test(color)
+}
+
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(
     ([, config]) => config.theme || config.color,
@@ -78,25 +84,28 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
+  const cssContent = Object.entries(THEMES)
+    .map(
+      ([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
+    // Validate color before including in CSS
+    return color && isValidCSSColor(color) ? `  --color-${key}: ${color};` : null
   })
   .join('\n')}
 }
 `,
-          )
-          .join('\n'),
+    )
+    .join('\n')
+
+  return (
+    <style
+      dangerouslySetInnerHTML={{
+        __html: cssContent,
       }}
     />
   )
@@ -173,7 +182,7 @@ function ChartTooltipContent({
   return (
     <div
       className={cn(
-        'border-border/50 bg-background grid min-w-[8rem] items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl',
+        'border-border/50 bg-background grid min-w-32 items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl',
         className,
       )}
     >

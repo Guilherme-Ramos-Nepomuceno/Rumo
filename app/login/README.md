@@ -1,10 +1,10 @@
-# 🔐 Módulo Acesso (Login)
+# Módulo Acesso (Login)
 
 O módulo **Login** gerencia o portão de entrada do Rumo, garantindo que o usuário seja persistido durante a sessão do navegador.
 
 ---
 
-## 🛠️ Especificações Técnicas
+## Especificações Técnicas
 
 A autenticação é propositalmente leve, utilizando um sistema de **Token Fake** armazenado no `localStorage`.
 
@@ -16,14 +16,14 @@ A autenticação é propositalmente leve, utilizando um sistema de **Token Fake*
 
 ---
 
-## 📋 Regras de Negócio (Acesso)
+## Regras de Negócio (Acesso)
 
-- **Sessão Persistente**: A saída só ocorre explicitamente através do comando `logout`, que remove o token e limpa os dados da sessão.
-- **Onboarding Automático**: Se o token estiver ausente, qualquer tentativa de acessar `/home` ou `/historico` redireciona o usuário para o `/login`.
+- Sessão Persistente: A saída só ocorre explicitamente através do comando `logout`, que remove o token e limpa os dados da sessão.
+- Onboarding Automático: Se o token estiver ausente, qualquer tentativa de acessar `/home` ou `/historico` redireciona o usuário para o `/login`.
 
 ---
 
-## 🔌 API & Eventos Internos
+## API & Eventos Internos
 
 O login interage diretamente com o roteador do Next.js:
 

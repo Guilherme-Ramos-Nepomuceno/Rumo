@@ -305,7 +305,7 @@ export function KanbanBoard({
         </div>
 
         <div
-          className="space-y-3 min-h-[150px] transition-colors rounded-xl p-1"
+          className="space-y-3 min-h-37.5 transition-colors rounded-xl p-1"
           onDragOver={(e) => {
             if (pausedTasks.length === 0) {
               handleDragOver(e, 0, "paused")
@@ -361,7 +361,7 @@ export function KanbanBoard({
         </div>
 
         <div
-          className="space-y-3 min-h-[150px] transition-colors rounded-xl p-1"
+          className="space-y-3 min-h-37.5 transition-colors rounded-xl p-1"
           onDragOver={(e) => {
             if (inProgressTasks.length === 0) {
               handleDragOver(e, 0, "in-progress")
@@ -369,8 +369,8 @@ export function KanbanBoard({
           }}
         >
           {inProgressTasks.map((task, index) => {
-            const hasMoreSteps = task.subtasks && task.currentSubtaskIndex !== undefined &&
-              task.currentSubtaskIndex < task.subtasks.length - 1
+            const hasMoreSteps = !!(task.subtasks && task.currentSubtaskIndex !== undefined &&
+              task.currentSubtaskIndex < task.subtasks.length - 1)
 
             return (
               <TaskCardWrapperInProgress
@@ -378,6 +378,7 @@ export function KanbanBoard({
                 task={task}
                 index={index}
                 tasksLength={inProgressTasks.length}
+                column="in-progress"
                 isDragging={draggedTask?.id === task.id}
                 hasMoreSteps={hasMoreSteps}
                 onDragOver={handleDragOver}
@@ -604,7 +605,7 @@ function KanbanCardComponent({
       onDragEnd={onDragEnd}
       className={cn(
         "p-4 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing",
-        "flex flex-col min-h-[336px]", // Altura reduzida para evitar espaços vazios
+        "flex flex-col min-h-84", // Altura reduzida para evitar espaços vazios
         isDragging && "opacity-50 scale-105 shadow-xl z-50 rotate-2"
       )}
     >
@@ -614,7 +615,7 @@ function KanbanCardComponent({
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-2 flex-1 min-w-0">
               <div
-                className={cn("p-2 rounded-lg text-white flex-shrink-0", !isCustom && config.color)}
+                className={cn("p-2 rounded-lg text-white shrink-0", !isCustom && config.color)}
                 style={isCustom ? { backgroundColor: config.color } : undefined}
               >
                 <IconComponent className="w-4 h-4" />
@@ -684,7 +685,7 @@ function KanbanCardComponent({
           </div>
 
           {/* Subtasks indicator */}
-          <div className="min-h-[64px] flex flex-col justify-center py-2 border-y border-border/5">
+          <div className="min-h-16 flex flex-col justify-center py-2 border-y border-border/5">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
                 {task.subtasks && task.subtasks.length > 0 ? (

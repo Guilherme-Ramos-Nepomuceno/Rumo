@@ -194,25 +194,25 @@ function TimePicker({ value, onChange }: { value: string; onChange: (val: string
           type="button"
           variant="secondary"
           size="sm"
-          className="h-9 font-semibold rounded-lg px-3 bg-secondary/40 hover:bg-secondary/60 text-foreground text-xs border border-border/40 shadow-2xs min-w-[65px] transition-colors"
+          className="h-9 font-semibold rounded-lg px-3 bg-secondary/40 hover:bg-secondary/60 text-foreground text-xs border border-border/40 shadow-2xs min-w-16.25 transition-colors"
         >
           {value}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[180px] p-2 bg-popover border border-border/40 rounded-2xl shadow-xl select-none" align="end">
-        <div className="relative flex justify-between gap-1 text-center h-[160px] overflow-hidden">
+      <PopoverContent className="w-45 p-2 bg-popover border border-border/40 rounded-2xl shadow-xl select-none" align="end">
+        <div className="relative flex justify-between gap-1 text-center h-40 overflow-hidden">
           
           {/* Faixa de Seleção Central (iOS Highlight) */}
-          <div className="absolute top-[64px] h-8 left-1 right-1 border-y border-foreground/10 pointer-events-none bg-foreground/[0.03] dark:bg-foreground/[0.05] rounded-md" />
+          <div className="absolute top-16 h-8 left-1 right-1 border-y border-foreground/10 pointer-events-none bg-foreground/3 dark:bg-foreground/5 rounded-md" />
 
           {/* Gradientes de Sombra (Efeito Cilíndrico superior/inferior) */}
-          <div className="absolute inset-x-0 top-0 h-[50px] bg-gradient-to-b from-popover via-popover/80 to-transparent pointer-events-none z-10" />
-          <div className="absolute inset-x-0 bottom-0 h-[50px] bg-gradient-to-t from-popover via-popover/80 to-transparent pointer-events-none z-10" />
+          <div className="absolute inset-x-0 top-0 h-12.5 bg-linear-to-b from-popover via-popover/80 to-transparent pointer-events-none z-10" />
+          <div className="absolute inset-x-0 bottom-0 h-12.5 bg-linear-to-t from-popover via-popover/80 to-transparent pointer-events-none z-10" />
 
           {/* Coluna das Horas */}
           <div 
             ref={hoursRef}
-            className="flex-1 h-full overflow-y-auto scroll-smooth snap-y snap-mandatory scrollbar-none py-[64px]"
+            className="flex-1 h-full overflow-y-auto scroll-smooth snap-y snap-mandatory scrollbar-none py-16"
             style={{ 
               scrollbarWidth: "none",
               msOverflowStyle: "none"
@@ -252,7 +252,7 @@ function TimePicker({ value, onChange }: { value: string; onChange: (val: string
           {/* Coluna dos Minutos */}
           <div 
             ref={minutesRef}
-            className="flex-1 h-full overflow-y-auto scroll-smooth snap-y snap-mandatory scrollbar-none py-[64px]"
+            className="flex-1 h-full overflow-y-auto scroll-smooth snap-y snap-mandatory scrollbar-none py-16"
             style={{ 
               scrollbarWidth: "none",
               msOverflowStyle: "none"
@@ -466,7 +466,7 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
                 defaultValue={taskToEdit?.description || ""}
                 placeholder="Notas e descrição desta atividade..."
                 rows={3}
-                className="w-full text-sm border-none outline-hidden focus:ring-0 focus-visible:outline-hidden p-0 bg-transparent placeholder:text-muted-foreground/30 text-foreground resize-none min-h-[60px]"
+                className="w-full text-sm border-none outline-hidden focus:ring-0 focus-visible:outline-hidden p-0 bg-transparent placeholder:text-muted-foreground/30 text-foreground resize-none min-h-15"
               />
             </div>
           </div>
@@ -550,7 +550,7 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
               <div className="flex items-center justify-between p-3.5 bg-card/45">
                 <span className="text-sm font-medium text-foreground">Categoria</span>
                 <Select name="category" value={category} onValueChange={(v) => setCategory(v as Category)}>
-                  <SelectTrigger className="w-[190px] h-9 text-xs border border-border/40 bg-secondary/40 rounded-lg hover:bg-secondary/60 transition-colors">
+                  <SelectTrigger className="w-47.5 h-9 text-xs border border-border/40 bg-secondary/40 rounded-lg hover:bg-secondary/60 transition-colors">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -576,7 +576,7 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
               <div className="flex items-center justify-between p-3.5 bg-card/45">
                 <span className="text-sm font-medium text-foreground">Dificuldade Esperada</span>
                 <Select name="difficulty" defaultValue={taskToEdit?.expectedDifficulty || "medium"}>
-                  <SelectTrigger className="w-[190px] h-9 text-xs border border-border/40 bg-secondary/40 rounded-lg hover:bg-secondary/60 transition-colors">
+                  <SelectTrigger className="w-47.5 h-9 text-xs border border-border/40 bg-secondary/40 rounded-lg hover:bg-secondary/60 transition-colors">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
