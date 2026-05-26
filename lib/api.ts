@@ -154,13 +154,14 @@ export const api = {
       };
     },
 
-    async history(): Promise<Task[]> {
+    async history(page: number = 1): Promise<{ tasks: Task[], hasMore: boolean }> {
       await ensureSync();
-      const response = await request("/tasks/history");
+      const response = await request(`/tasks/history?page=${page}`);
       if (!response.ok) throw new Error("Erro ao carregar histórico");
       const json = await response.json();
-      const data = json.data || json;
-      return toCamelCase(data);
+      const tasks = toCamelCase(json.data || []);
+      const hasMore = json.meta?.has_more_pages || json.links?.next !== null;
+      return { tasks, hasMore };
     },
 
     async create(task: Task): Promise<Task> {

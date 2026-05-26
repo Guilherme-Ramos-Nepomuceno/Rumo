@@ -143,7 +143,7 @@ export function useDashboard() {
     const loadCompletedTasks = async () => {
       if (navigator.onLine) {
         try {
-          const history = await api.tasks.history()
+          const { tasks: history } = await api.tasks.history()
           setCompletedTasks(history.slice(0, 500).map(parseTask))
           return
         } catch (e) {

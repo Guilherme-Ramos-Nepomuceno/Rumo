@@ -160,6 +160,22 @@ function ActivityTrackerComponent({
     }
   }, [timeView, selectedCategory, currentDate, mounted])  // ← Removeu onFilterChange das dependências
 
+  // ProjectcompletedTasks to only fields needed in blocks to reduce memory footprint
+  // For week/month/semester/year views: only category, completedAt
+  // For day view: also need title, elapsedTime, startTime, endTime for tooltip
+  const completedTasksProjection = useMemo(() =>
+    completedTasks.map(t => ({
+      category: t.category,
+      completedAt: t.completedAt,
+      // Day view needs these for tooltip:
+      title: t.title,
+      elapsedTime: t.elapsedTime,
+      startTime: t.startTime,
+      endTime: t.endTime,
+    })),
+    [completedTasks]
+  )
+
   // Mathematically precise calendar and timeline block builder
   const { blocks, maxCount } = useMemo(() => {
     const blocks: { 
@@ -181,7 +197,7 @@ function ActivityTrackerComponent({
         const targetDayStr = getLocalDateString(today)
 
         // Filter completed tasks for this local day
-        const completedOnDay = completedTasks.filter(t => 
+        const completedOnDay = completedTasksProjection.filter(t => 
           t.completedAt && getLocalDateString(t.completedAt) === targetDayStr &&
           (categoryFilter === undefined || t.category === categoryFilter)
         )
@@ -250,7 +266,7 @@ function ActivityTrackerComponent({
           blockDate.setDate(blockDate.getDate() - i)
           const blockDayStr = getLocalDateString(blockDate)
 
-          const completedOnDay = completedTasks.filter(t => 
+          const completedOnDay = completedTasksProjection.filter(t => 
             t.completedAt && getLocalDateString(t.completedAt) === blockDayStr &&
             (categoryFilter === undefined || t.category === categoryFilter)
           )
@@ -307,7 +323,7 @@ function ActivityTrackerComponent({
           const blockDate = new Date(year, month, day)
           const blockDayStr = getLocalDateString(blockDate)
 
-          const completedOnDay = completedTasks.filter(t => 
+          const completedOnDay = completedTasksProjection.filter(t => 
             t.completedAt && getLocalDateString(t.completedAt) === blockDayStr &&
             (categoryFilter === undefined || t.category === categoryFilter)
           )
@@ -367,7 +383,7 @@ function ActivityTrackerComponent({
           blockDate.setDate(start.getDate() + i)
           const blockDayStr = getLocalDateString(blockDate)
 
-          const completedOnDay = completedTasks.filter(t => 
+          const completedOnDay = completedTasksProjection.filter(t => 
             t.completedAt && getLocalDateString(t.completedAt) === blockDayStr &&
             (categoryFilter === undefined || t.category === categoryFilter)
           )
@@ -414,7 +430,7 @@ function ActivityTrackerComponent({
           blockDate.setDate(start.getDate() + i)
           const blockDayStr = getLocalDateString(blockDate)
 
-          const completedOnDay = completedTasks.filter(t => 
+          const completedOnDay = completedTasksProjection.filter(t => 
             t.completedAt && getLocalDateString(t.completedAt) === blockDayStr &&
             (categoryFilter === undefined || t.category === categoryFilter)
           )
@@ -450,7 +466,7 @@ function ActivityTrackerComponent({
     }
 
     return { blocks, maxCount }
-  }, [timeView, selectedCategory, currentDate, data, completedTasks, openTasks])
+  }, [timeView, selectedCategory, currentDate, data, completedTasksProjection, openTasks])
 
   // Position Month Headers above GitHub style columns
   const monthLabels = useMemo(() => {
