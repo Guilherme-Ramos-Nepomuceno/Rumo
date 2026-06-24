@@ -50,7 +50,7 @@ export function CategoryManager({ open, onOpenChange, onAddCategory, showWarning
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-125">
         <DialogHeader>
           <DialogTitle>Nova Categoria</DialogTitle>
           <DialogDescription>Adicione uma nova categoria de atividade para rastrear seus objetivos</DialogDescription>

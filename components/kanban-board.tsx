@@ -5,10 +5,9 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Plus, MoreVertical, Play, Pause, Check, ArrowUp, ArrowDown, Eye, Clock, ChevronRight, Timer, Undo, Trash2, RotateCcw } from "lucide-react"
-import { categoryConfig } from "@/lib/category-config"
-import { importanceConfig } from "@/lib/importance-config"
 import type { Task, CustomCategory } from "@/lib/types"
-import { cn } from "@/lib/utils"
+import { cn, isValidCSSColor, formatDuration } from "@/lib/utils"
+import { resolveCategoryConfig } from "@/lib/task-utils"
 import * as Icons from "lucide-react"
 import { useEffect, useState, useRef, useCallback, memo } from "react"
 
@@ -18,7 +17,7 @@ interface KanbanBoardProps {
   onViewDetails: (task: Task) => void
   onStartTask: (taskId: string) => void
   onPauseTask: (taskId: string, elapsedTime?: number) => void
-  onCompleteTask: (taskId: string) => void
+  onCompleteTask: (taskId: string, elapsedTime: number) => void
   onNextStep: (taskId: string) => void
   onReorder: (taskId: string, direction: "up" | "down", column: "paused" | "in-progress") => void
   onDragReorder: (taskId: string, newIndex: number, column: "paused" | "in-progress") => void
@@ -143,7 +142,7 @@ const TaskCardWrapper = memo(TaskCardWrapperComponent)
 interface TaskCardWrapperInProgressProps extends Omit<TaskCardWrapperProps, "onStartTask"> {
   hasMoreSteps: boolean
   onPauseTask: (taskId: string, elapsedTime?: number) => void
-  onCompleteTask: (taskId: string) => void
+  onCompleteTask: (taskId: string, elapsedTime: number) => void
   onNextStep: (taskId: string) => void
 }
 
@@ -187,8 +186,8 @@ function TaskCardWrapperInProgressComponent({
     onPauseTask(task.id, elapsed)
   }, [onPauseTask, task.id])
 
-  const handleCompleteCard = useCallback(() => {
-    onCompleteTask(task.id)
+  const handleCompleteCard = useCallback((elapsed: number) => {
+    onCompleteTask(task.id, elapsed)
   }, [onCompleteTask, task.id])
 
   const handleNextStepCard = useCallback(() => {
@@ -292,68 +291,12 @@ export function KanbanBoard({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Paused Column */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-yellow-500" />
-            <h3 className="text-lg font-semibold text-foreground">Em Pausa</h3>
-            <Badge variant="secondary" className="rounded-full">
-              {pausedTasks.length}
-            </Badge>
-          </div>
-        </div>
-
-        <div
-          className="space-y-3 min-h-37.5 transition-colors rounded-xl p-1"
-          onDragOver={(e) => {
-            if (pausedTasks.length === 0) {
-              handleDragOver(e, 0, "paused")
-            }
-          }}
-        >
-          {pausedTasks.map((task, index) => (
-            <TaskCardWrapper
-              key={task.id}
-              task={task}
-              index={index}
-              tasksLength={pausedTasks.length}
-              column="paused"
-              isDragging={draggedTask?.id === task.id}
-              onDragOver={handleDragOver}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onViewDetails={onViewDetails}
-              onStartTask={onStartTask}
-              onReorder={onReorder}
-              onRevertToUpcoming={onRevertToUpcoming}
-              onDeleteTask={onDeleteTask}
-              onAddSubtask={onAddSubtask}
-              onDeleteSubtask={onDeleteSubtask}
-              customCategories={customCategories}
-              draggedTask={draggedTask}
-              dragOverIndex={dragOverIndex}
-              dragOverColumn={dragOverColumn}
-            />
-          ))}
-          {pausedTasks.length === 0 && draggedTask && dragOverColumn === "paused" && (
-            <div
-              className="h-32 border-2 border-dashed border-muted-foreground/30 rounded-xl bg-muted/20"
-              onDragOver={(e) => handleDragOver(e, 0, "paused")}
-            />
-          )}
-          {pausedTasks.length > 0 && draggedTask && dragOverColumn === "paused" && dragOverIndex === pausedTasks.length && (
-            <div className="h-32 border-2 border-dashed border-muted-foreground/30 rounded-xl bg-muted/10 animate-pulse" />
-          )}
-        </div>
-      </div>
-
-      {/* In Progress Column */}
+      {/* In Progress Column — rendered first so it appears on top on mobile */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-blue-500" />
-            <h3 className="text-lg font-semibold text-foreground">Em Andamento</h3>
+            <h3 className="text-base font-semibold text-foreground">Em Andamento</h3>
             <Badge variant="secondary" className="rounded-full">
               {inProgressTasks.length}
             </Badge>
@@ -411,6 +354,62 @@ export function KanbanBoard({
           )}
         </div>
       </div>
+
+      {/* Paused Column */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+            <h3 className="text-base font-semibold text-foreground">Em Pausa</h3>
+            <Badge variant="secondary" className="rounded-full">
+              {pausedTasks.length}
+            </Badge>
+          </div>
+        </div>
+
+        <div
+          className="space-y-3 min-h-37.5 transition-colors rounded-xl p-1"
+          onDragOver={(e) => {
+            if (pausedTasks.length === 0) {
+              handleDragOver(e, 0, "paused")
+            }
+          }}
+        >
+          {pausedTasks.map((task, index) => (
+            <TaskCardWrapper
+              key={task.id}
+              task={task}
+              index={index}
+              tasksLength={pausedTasks.length}
+              column="paused"
+              isDragging={draggedTask?.id === task.id}
+              onDragOver={handleDragOver}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onViewDetails={onViewDetails}
+              onStartTask={onStartTask}
+              onReorder={onReorder}
+              onRevertToUpcoming={onRevertToUpcoming}
+              onDeleteTask={onDeleteTask}
+              onAddSubtask={onAddSubtask}
+              onDeleteSubtask={onDeleteSubtask}
+              customCategories={customCategories}
+              draggedTask={draggedTask}
+              dragOverIndex={dragOverIndex}
+              dragOverColumn={dragOverColumn}
+            />
+          ))}
+          {pausedTasks.length === 0 && draggedTask && dragOverColumn === "paused" && (
+            <div
+              className="h-32 border-2 border-dashed border-muted-foreground/30 rounded-xl bg-muted/20"
+              onDragOver={(e) => handleDragOver(e, 0, "paused")}
+            />
+          )}
+          {pausedTasks.length > 0 && draggedTask && dragOverColumn === "paused" && dragOverIndex === pausedTasks.length && (
+            <div className="h-32 border-2 border-dashed border-muted-foreground/30 rounded-xl bg-muted/10 animate-pulse" />
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -427,7 +426,7 @@ interface KanbanCardProps {
   onViewDetails: () => void
   onStart?: () => void
   onPause?: (elapsedTime: number) => void
-  onComplete?: () => void
+  onComplete?: (elapsedTime: number) => void
   onNextStep?: () => void
   onReorderUp?: () => void
   onReorderDown?: () => void
@@ -460,38 +459,20 @@ function KanbanCardComponent({
   onDeleteSubtask,
   customCategories = [],
 }: KanbanCardProps) {
-  // Resolve category ID and label
-  const categoryId = typeof task.category === "object" && task.category !== null 
-    ? (task.category as any).id 
-    : task.category
-  
-  const categoryLabel = typeof task.category === "object" && task.category !== null
-    ? (task.category as any).label
+  const categoryId = typeof task.category === "object" && task.category !== null
+    ? (task.category as any).id
     : task.category
 
-  let config: any = categoryConfig[categoryId as keyof typeof categoryConfig]
-  let isCustom = false
-
-  if (!config) {
-    const customMatch = customCategories.find((c) => c.id === categoryId)
-    if (customMatch) {
-      isCustom = true
-      config = {
-        id: customMatch.id,
-        label: customMatch.label,
-        icon: Icons[customMatch.icon as keyof typeof Icons] || Icons.Circle,
-        color: customMatch.color,
-      }
-    } else {
-      config = categoryConfig["others"] || { label: categoryLabel || "Outros", icon: Icons.Circle, color: "bg-slate-400" }
-    }
-  }
-
-  const IconComponent = config.icon
-  const importanceInfo = importanceConfig[task.importance]
+  const resolved = resolveCategoryConfig(categoryId, customCategories)
+  const IconComponent = (Icons as any)[resolved.iconName] || Icons.Circle
   const cardRef = useRef<HTMLDivElement>(null)
 
-  const [elapsedTime, setElapsedTime] = useState(() => task.elapsedTime || 0)
+  const [elapsedTime, setElapsedTime] = useState(() => {
+    if (isActive && task.activeStartedAt) {
+      return Math.floor((Date.now() - task.activeStartedAt) / 1000) + (task.elapsedTime || 0)
+    }
+    return task.elapsedTime || 0
+  })
   const [isAddingSubtask, setIsAddingSubtask] = useState(false)
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("")
   const [newSubtaskEstimated, setNewSubtaskEstimated] = useState("30")
@@ -509,16 +490,20 @@ function KanbanCardComponent({
       return
     }
 
-    // Initialize start time when task becomes active
+    // Initialize start time when task becomes active.
+    // Uses timerStartedAt (persisted in localStorage) to survive page refresh:
+    // virtualStart = timerStartedAt - accumulated_seconds_before_this_session
+    // → timer shows: now - virtualStart = (now - timerStartedAt) + elapsedTime ✓
     if (startTimeRef.current === null) {
-      startTimeRef.current = Date.now() - (task.elapsedTime || 0) * 1000
+      // activeStartedAt vem do backend — garante sincronização entre dispositivos
+      const sessionStart = task.activeStartedAt ?? Date.now()
+      startTimeRef.current = sessionStart - (task.elapsedTime || 0) * 1000
     }
 
-    // Update timer every 2 seconds instead of 1 to reduce re-renders
     const interval = setInterval(() => {
       const elapsedSeconds = Math.floor((Date.now() - (startTimeRef.current || 0)) / 1000)
       setElapsedTime(elapsedSeconds)
-    }, 2000)
+    }, 1000)
 
     return () => clearInterval(interval)
   }, [isActive, task.elapsedTime])
@@ -586,14 +571,6 @@ function KanbanCardComponent({
     ? task.subtasks[task.currentSubtaskIndex]
     : null
 
-  // Format time short (1h 30m)
-  const formatTimeShort = (seconds: number) => {
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60)
-    if (h > 0) return `${h}h ${m}m`
-    return `${m}m`
-  }
-
   return (
     <Card
       ref={cardRef}
@@ -615,15 +592,15 @@ function KanbanCardComponent({
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-2 flex-1 min-w-0">
               <div
-                className={cn("p-2 rounded-lg text-white shrink-0", !isCustom && config.color)}
-                style={isCustom ? { backgroundColor: config.color } : undefined}
+                className="p-2 rounded-lg text-white shrink-0"
+                style={isValidCSSColor(resolved.color) ? { backgroundColor: resolved.color } : undefined}
               >
                 <IconComponent className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="font-semibold text-sm text-foreground leading-tight line-clamp-1">{task.title}</h4>
                 <Badge variant="secondary" className="text-[10px] h-4 mt-1">
-                  {config.label}
+                  {resolved.label}
                 </Badge>
               </div>
             </div>
@@ -670,19 +647,6 @@ function KanbanCardComponent({
           {task.description && (
             <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed h-8">{task.description}</p>
           )}
-
-          {/* Tags and Importance */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="outline" className="text-[10px] h-4">
-              <importanceInfo.icon className="w-2.5 h-2.5 mr-1" />
-              {importanceInfo.label}
-            </Badge>
-            {task.tags?.slice(0, 2).map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-[10px] h-4">
-                {tag}
-              </Badge>
-            ))}
-          </div>
 
           {/* Subtasks indicator */}
           <div className="min-h-16 flex flex-col justify-center py-2 border-y border-border/5">
@@ -774,7 +738,7 @@ function KanbanCardComponent({
                         {currentSubtask.title}
                       </span>
                       <span className="text-muted-foreground whitespace-nowrap opacity-60">
-                        {formatTimeShort(currentSubtask.estimatedTime || 1800)}
+                        {formatDuration(currentSubtask.estimatedTime || 1800)}
                       </span>
                     </div>
                   )
@@ -796,15 +760,20 @@ function KanbanCardComponent({
             {task.estimatedTime && (
               <div className="flex items-center gap-1">
                 <Timer className="w-3 h-3 text-primary/50" />
-                <span>Est: {formatTimeShort(task.estimatedTime)}</span>
+                <span>Est: {formatDuration(task.estimatedTime)}</span>
               </div>
             )}
-            {isActive && (
+            {isActive ? (
               <div className="flex items-center gap-1 text-primary">
                 <Clock className="w-3 h-3 animate-pulse" />
                 <span>Agora: {formatTime(elapsedTime)}</span>
               </div>
-            )}
+            ) : elapsedTime > 0 ? (
+              <div className="flex items-center gap-1 text-muted-foreground/70">
+                <Clock className="w-3 h-3" />
+                <span>Decorrido: {formatTime(elapsedTime)}</span>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-1">
@@ -840,7 +809,7 @@ function KanbanCardComponent({
                     Próxima
                   </Button>
                 ) : (
-                  <Button onClick={onComplete} size="sm" variant="outline" className="flex-1 h-8 bg-transparent font-bold text-[10px] tracking-wider uppercase">
+                  <Button onClick={() => onComplete?.(elapsedTime)} size="sm" variant="outline" className="flex-1 h-8 bg-transparent font-bold text-[10px] tracking-wider uppercase">
                     <Check className="w-3 h-3 mr-1" />
                     Concluir
                   </Button>

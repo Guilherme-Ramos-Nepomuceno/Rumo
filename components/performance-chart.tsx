@@ -1,15 +1,16 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { 
-  LineChart, Line, 
+import { cn, getLocalDateString, isValidCSSColor } from "@/lib/utils"
+import {
+  LineChart, Line,
   BarChart, Bar, Cell, ReferenceLine,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+  ScatterChart, Scatter, ZAxis,
+  ComposedChart,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts"
 import { GitCompare, CalendarIcon, BarChart3, TrendingUp, SlidersHorizontal, Info } from "lucide-react"
 import { Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
@@ -28,6 +29,8 @@ interface PerformanceRecord {
   actualDifficulty: number
   expectedSatisfaction: number
   actualSatisfaction: number
+  elapsedTime?: number   // segundos
+  isPeriodic?: boolean
 }
 
 interface PerformanceChartProps {
@@ -36,12 +39,24 @@ interface PerformanceChartProps {
   onFilterChange?: (filters: { month?: string; categoryId?: string }) => void
 }
 
-// Helper to format local date consistently as YYYY-MM-DD
-const getLocalDateString = (d: Date) => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const dayStr = String(d.getDate()).padStart(2, "0")
-  return `${y}-${m}-${dayStr}`
+// Shared date tick formatter for YYYY-MM-DD strings on chart X-axes
+const formatDateTick = (value: string) => {
+  const [, m, d] = value.split("-")
+  return `${d}/${m}`
+}
+
+// Shared date range calculator — extracted from both useMemo blocks to avoid duplication
+function getDateRange(monthStr: string, timeView: TimeView): { start: Date; end: Date } {
+  const [year, month] = monthStr.split("-").map(Number)
+  const start = new Date(year, month - 1, 1)
+  const end = new Date(start)
+  switch (timeView) {
+    case "week":     end.setDate(end.getDate() + 7);        break
+    case "month":    end.setMonth(end.getMonth() + 1);       break
+    case "semester": end.setMonth(end.getMonth() + 6);       break
+    case "year":     end.setFullYear(end.getFullYear() + 1); break
+  }
+  return { start, end }
 }
 
 const CustomChartTooltip = ({ active, payload, label, isDifficulty, groupBy }: any) => {
@@ -154,6 +169,129 @@ const CustomChartTooltip = ({ active, payload, label, isDifficulty, groupBy }: a
   )
 }
 
+// ─── Calibration Card (shared for difficulty and satisfaction) ───────────────
+
+interface CalibrationCardStats {
+  accuracy: number; bias: number; mad: number
+  underPct: number; exactPct: number; overPct: number
+  interpretation: string
+}
+
+function CalibrationCard({ isDifficulty, stats }: { isDifficulty: boolean; stats: CalibrationCardStats }) {
+  const title = isDifficulty ? "Dificuldade:" : "Satisfação:"
+
+  const badgeClass = isDifficulty
+    ? stats.bias > 0.15  ? "bg-red-500/10 border-red-500/20 text-red-500"
+      : stats.bias < -0.15 ? "bg-blue-500/10 border-blue-500/20 text-blue-500"
+                           : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+    : stats.bias > 0.15  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+      : stats.bias < -0.15 ? "bg-red-500/10 border-red-500/20 text-red-500"
+                           : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+
+  const badgeText = isDifficulty
+    ? (stats.bias > 0.15 ? "Sub" : stats.bias < -0.15 ? "Super" : "Ok")
+    : (stats.bias > 0.15 ? "Surpresa" : stats.bias < -0.15 ? "Frustra" : "Ok")
+
+  const distributionText = isDifficulty
+    ? `${stats.overPct.toFixed(0)}/${stats.exactPct.toFixed(0)}/${stats.underPct.toFixed(0)}%`
+    : `${stats.underPct.toFixed(0)}/${stats.exactPct.toFixed(0)}/${stats.overPct.toFixed(0)}%`
+
+  const segments = isDifficulty
+    ? [
+        { pct: stats.overPct,  colorClass: "bg-blue-500",    label: "Superestimou" },
+        { pct: stats.exactPct, colorClass: "bg-emerald-500", label: "Alinhado" },
+        { pct: stats.underPct, colorClass: "bg-orange-500",  label: "Subestimou" },
+      ]
+    : [
+        { pct: stats.underPct, colorClass: "bg-orange-500",  label: "Frustração" },
+        { pct: stats.exactPct, colorClass: "bg-blue-500",    label: "Alinhado" },
+        { pct: stats.overPct,  colorClass: "bg-emerald-500", label: "Surpresa" },
+      ]
+
+  return (
+    <div className="p-4 bg-muted/10 border border-border/40 hover:border-border/80 transition-all rounded-2xl shadow-inner flex flex-col justify-between space-y-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-b border-border/20 pb-2 text-[10px] sm:text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className="font-extrabold text-muted-foreground uppercase tracking-wider">{title}</span>
+          <span className="font-black text-foreground">{stats.accuracy.toFixed(1)}%</span>
+          <span className={cn("text-[8px] font-black uppercase tracking-widest px-1.5 py-0.2 rounded-full border shrink-0", badgeClass)}>
+            {badgeText}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium text-muted-foreground lowercase">distribuição:</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <span className="font-black text-foreground cursor-pointer border-b border-dashed border-border pb-0.5 hover:text-primary transition-colors">
+                {distributionText}
+              </span>
+            </PopoverTrigger>
+            <PopoverContent side="top" className="max-w-62.5 p-2.5 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-xl rounded-xl z-100 w-auto">
+              {isDifficulty
+                ? <>Percepção: <strong>{stats.overPct.toFixed(0)}% Superestimado</strong> / <strong>{stats.exactPct.toFixed(0)}% Alinhado</strong> / <strong>{stats.underPct.toFixed(0)}% Subestimado</strong> das tarefas.</>
+                : <>Expectativa: <strong>{stats.underPct.toFixed(0)}% Frustrado</strong> / <strong>{stats.exactPct.toFixed(0)}% Alinhado</strong> / <strong>{stats.overPct.toFixed(0)}% Surpresa Positiva</strong> das tarefas.</>
+              }
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      <div className="w-full h-2 rounded-full overflow-hidden bg-muted flex border border-border/40 shadow-inner">
+        {segments.filter(s => s.pct > 0).map((seg, i) => (
+          <div key={i} style={{ width: `${seg.pct}%` }}
+            className={cn(seg.colorClass, "hover:opacity-90 transition-all duration-300 relative")}
+            title={`${seg.label}: ${seg.pct.toFixed(0)}%`}
+          />
+        ))}
+      </div>
+
+      <div className="space-y-1.5 border-t border-border/20 pt-2 text-[10px] text-muted-foreground">
+        <div className="flex justify-between items-center py-0.5">
+          <div className="flex items-center gap-1.5">
+            <span>Desvio Absoluto Médio (MAD)</span>
+            <UITooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-foreground transition-colors focus:outline-none shrink-0" aria-label="Mais informações sobre MAD">
+                  <Info className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-70 p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-100">
+                Mede a <strong>magnitude média do erro</strong> de suas estimativas por tarefa (para mais ou para menos). Quanto menor o valor, mais precisas são suas projeções {isDifficulty ? "de esforço" : "de satisfação"}.
+              </TooltipContent>
+            </UITooltip>
+          </div>
+          <span className="font-bold text-foreground">{stats.mad.toFixed(2)} pts</span>
+        </div>
+        <div className="flex justify-between items-center py-0.5">
+          <div className="flex items-center gap-1.5">
+            <span>Erro de Tendência (Viés)</span>
+            <UITooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-foreground transition-colors focus:outline-none shrink-0" aria-label="Mais informações sobre Viés">
+                  <Info className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-70 p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-100">
+                Indica a <strong>direção constante do seu erro</strong> (frequentemente chamado de <em>'Bias'</em>). {isDifficulty
+                  ? "Valores positivos (+) indicam subestimação (a realidade foi mais difícil). Valores negativos (-) indicam superestimação (a realidade foi mais fácil)."
+                  : "Valores positivos (+) indicam subestimação (a realidade foi mais satisfatória). Valores negativos (-) indicam superestimação (a realidade foi menos satisfatória)."
+                }
+              </TooltipContent>
+            </UITooltip>
+          </div>
+          <span className="font-bold text-foreground">{stats.bias > 0 ? "+" : ""}{stats.bias.toFixed(2)} pts</span>
+        </div>
+      </div>
+
+      <p className="text-[10px] leading-relaxed italic font-semibold text-muted-foreground pt-1.5 border-t border-border/20">
+        {stats.interpretation}
+      </p>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function PerformanceChart({ data, customCategories = [], onFilterChange }: PerformanceChartProps) {
   const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all")
   const [timeView, setTimeView] = useState<TimeView>("month")
@@ -186,30 +324,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
       : rawData.filter((item) => item.category === selectedCategory)
 
     // 2. Filter by date range (selectedMonth / timeView)
-    const getDateRange = (monthStr: string) => {
-      const [year, month] = monthStr.split("-").map(Number)
-      const start = new Date(year, month - 1, 1)
-      const end = new Date(start)
-
-      switch (timeView) {
-        case "week":
-          end.setDate(end.getDate() + 7)
-          break
-        case "month":
-          end.setMonth(end.getMonth() + 1)
-          break
-        case "semester":
-          end.setMonth(end.getMonth() + 6)
-          break
-        case "year":
-          end.setFullYear(end.getFullYear() + 1)
-          break
-      }
-
-      return { start, end }
-    }
-
-    const mainRange = getDateRange(selectedMonth)
+    const mainRange = getDateRange(selectedMonth, timeView)
     const mainData = filtered.filter((d) => d.date >= mainRange.start && d.date < mainRange.end)
 
     // 3. Process grouping
@@ -306,7 +421,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
       return main
     }
 
-    const compareRange = getDateRange(compareMonth)
+    const compareRange = getDateRange(compareMonth, timeView)
     const compareData = filtered.filter((d) => d.date >= compareRange.start && d.date < compareRange.end)
     const compare = groupData(compareData)
 
@@ -333,29 +448,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
       ? rawData 
       : rawData.filter((item) => item.category === selectedCategory)
 
-    const getDateRange = (monthStr: string) => {
-      const [year, month] = monthStr.split("-").map(Number)
-      const start = new Date(year, month - 1, 1)
-      const end = new Date(start)
-
-      switch (timeView) {
-        case "week":
-          end.setDate(end.getDate() + 7)
-          break
-        case "month":
-          end.setMonth(end.getMonth() + 1)
-          break
-        case "semester":
-          end.setMonth(end.getMonth() + 6)
-          break
-        case "year":
-          end.setFullYear(end.getFullYear() + 1)
-          break
-      }
-      return { start, end }
-    }
-
-    const range = getDateRange(selectedMonth)
+    const range = getDateRange(selectedMonth, timeView)
     const activeTasks = filtered.filter((d) => d.date >= range.start && d.date < range.end)
 
     if (activeTasks.length === 0) return null
@@ -508,10 +601,28 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
     )
   }
 
+  const handleDiffChartClick = (state: any) => {
+    if (state && state.activeTooltipIndex !== undefined) {
+      const idx = state.activeTooltipIndex
+      setClickedPointDiff(prev => prev === idx ? null : idx)
+    } else {
+      setClickedPointDiff(null)
+    }
+  }
+
+  const handleSatChartClick = (state: any) => {
+    if (state && state.activeTooltipIndex !== undefined) {
+      const idx = state.activeTooltipIndex
+      setClickedPointSat(prev => prev === idx ? null : idx)
+    } else {
+      setClickedPointSat(null)
+    }
+  }
+
   return (
-    <Card className="p-6">
+    <div>
       <div className="space-y-6">
-        
+
         {/* Simple & Clean Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
           <div className="space-y-1">
@@ -718,202 +829,8 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                 
                 {/* Calibration Cards Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  
-                  {/* Difficulty Calibration */}
-                  <div className="p-4 bg-muted/10 border border-border/40 hover:border-border/80 transition-all rounded-2xl shadow-inner flex flex-col justify-between space-y-3.5">
-                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-b border-border/20 pb-2 text-[10px] sm:text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-extrabold text-muted-foreground uppercase tracking-wider">Dificuldade:</span>
-                        <span className="font-black text-foreground">{stats.difficulty.accuracy.toFixed(1)}%</span>
-                        <span className={cn(
-                          "text-[8px] font-black uppercase tracking-widest px-1.5 py-0.2 rounded-full border shrink-0",
-                          stats.difficulty.bias > 0.15 
-                            ? "bg-red-500/10 border-red-500/20 text-red-500" 
-                            : stats.difficulty.bias < -0.15 
-                              ? "bg-blue-500/10 border-blue-500/20 text-blue-500" 
-                              : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
-                        )}>
-                          {stats.difficulty.bias > 0.15 ? "Sub" : stats.difficulty.bias < -0.15 ? "Super" : "Ok"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-muted-foreground lowercase">distribuição:</span>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <span className="font-black text-foreground cursor-pointer border-b border-dashed border-border pb-0.5 hover:text-primary transition-colors">
-                              {stats.difficulty.overPct.toFixed(0)}/{stats.difficulty.exactPct.toFixed(0)}/{stats.difficulty.underPct.toFixed(0)}%
-                            </span>
-                          </PopoverTrigger>
-                          <PopoverContent side="top" className="max-w-62.5 p-2.5 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-xl rounded-xl z-100 w-auto">
-                            Percepção: <strong>{stats.difficulty.overPct.toFixed(0)}% Superestimado</strong> / <strong>{stats.difficulty.exactPct.toFixed(0)}% Alinhado</strong> / <strong>{stats.difficulty.underPct.toFixed(0)}% Subestimado</strong> das tarefas.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-                    
-                    {/* Segmented calibration bar */}
-                    <div className="w-full h-2 rounded-full overflow-hidden bg-muted flex border border-border/40 shadow-inner">
-                      {stats.difficulty.overPct > 0 && (
-                        <div 
-                          style={{ width: `${stats.difficulty.overPct}%` }}
-                          className="bg-blue-500 hover:opacity-90 transition-all duration-300 relative"
-                          title={`Superestimou: ${stats.difficulty.overPct.toFixed(0)}%`}
-                        />
-                      )}
-                      {stats.difficulty.exactPct > 0 && (
-                        <div 
-                          style={{ width: `${stats.difficulty.exactPct}%` }}
-                          className="bg-emerald-500 hover:opacity-90 transition-all duration-300 relative"
-                          title={`Alinhado: ${stats.difficulty.exactPct.toFixed(0)}%`}
-                        />
-                      )}
-                      {stats.difficulty.underPct > 0 && (
-                        <div 
-                          style={{ width: `${stats.difficulty.underPct}%` }}
-                          className="bg-orange-500 hover:opacity-90 transition-all duration-300 relative"
-                          title={`Subestimou: ${stats.difficulty.underPct.toFixed(0)}%`}
-                        />
-                      )}
-                    </div>
-
-                    <div className="space-y-1.5 border-t border-border/20 pt-2 text-[10px] text-muted-foreground">
-                      <div className="flex justify-between items-center py-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <span>Desvio Absoluto Médio (MAD)</span>
-                          <UITooltip>
-                            <TooltipTrigger asChild>
-                              <button type="button" className="text-muted-foreground hover:text-foreground transition-colors focus:outline-none shrink-0" aria-label="Mais informações sobre MAD">
-                                <Info className="h-3 w-3" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-70 p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-100">
-                              Mede a <strong>magnitude média do erro</strong> de suas estimativas por tarefa (para mais ou para menos). Quanto menor o valor, mais precisas são suas projeções de esforço.
-                            </TooltipContent>
-                          </UITooltip>
-                        </div>
-                        <span className="font-bold text-foreground">{stats.difficulty.mad.toFixed(2)} pts</span>
-                      </div>
-                      <div className="flex justify-between items-center py-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <span>Erro de Tendência (Viés)</span>
-                          <UITooltip>
-                            <TooltipTrigger asChild>
-                              <button type="button" className="text-muted-foreground hover:text-foreground transition-colors focus:outline-none shrink-0" aria-label="Mais informações sobre Viés">
-                                <Info className="h-3 w-3" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-70 p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-100">
-                              Indica a <strong>direção constante do seu erro</strong> (frequentemente chamado de <em>'Bias'</em>). Valores positivos (+) indicam subestimação (a realidade foi mais difícil). Valores negativos (-) indicam superestimação (a realidade foi mais fácil).
-                            </TooltipContent>
-                          </UITooltip>
-                        </div>
-                        <span className="font-bold text-foreground">{stats.difficulty.bias > 0 ? "+" : ""}{stats.difficulty.bias.toFixed(2)} pts</span>
-                      </div>
-                    </div>
-                    
-                    <p className="text-[10px] leading-relaxed italic font-semibold text-muted-foreground pt-1.5 border-t border-border/20">
-                      {stats.difficulty.interpretation}
-                    </p>
-                  </div>
-
-                  {/* Satisfaction Calibration */}
-                  <div className="p-4 bg-muted/10 border border-border/40 hover:border-border/80 transition-all rounded-2xl shadow-inner flex flex-col justify-between space-y-3.5">
-                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-b border-border/20 pb-2 text-[10px] sm:text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-extrabold text-muted-foreground uppercase tracking-wider">Satisfação:</span>
-                        <span className="font-black text-foreground">{stats.satisfaction.accuracy.toFixed(1)}%</span>
-                        <span className={cn(
-                          "text-[8px] font-black uppercase tracking-widest px-1.5 py-0.2 rounded-full border shrink-0",
-                          stats.satisfaction.bias > 0.15 
-                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" 
-                            : stats.satisfaction.bias < -0.15 
-                              ? "bg-red-500/10 border-red-500/20 text-red-500" 
-                              : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
-                        )}>
-                          {stats.satisfaction.bias > 0.15 ? "Surpresa" : stats.satisfaction.bias < -0.15 ? "Frustra" : "Ok"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-muted-foreground lowercase">distribuição:</span>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <span className="font-black text-foreground cursor-pointer border-b border-dashed border-border pb-0.5 hover:text-primary transition-colors">
-                              {stats.satisfaction.underPct.toFixed(0)}/{stats.satisfaction.exactPct.toFixed(0)}/{stats.satisfaction.overPct.toFixed(0)}%
-                            </span>
-                          </PopoverTrigger>
-                          <PopoverContent side="top" className="max-w-62.5 p-2.5 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-xl rounded-xl z-100 w-auto">
-                            Expectativa: <strong>{stats.satisfaction.underPct.toFixed(0)}% Frustrado</strong> / <strong>{stats.satisfaction.exactPct.toFixed(0)}% Alinhado</strong> / <strong>{stats.satisfaction.overPct.toFixed(0)}% Surpresa Positiva</strong> das tarefas.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-
-                    {/* Segmented calibration bar for satisfaction */}
-                    <div className="w-full h-2 rounded-full overflow-hidden bg-muted flex border border-border/40 shadow-inner">
-                      {stats.satisfaction.underPct > 0 && (
-                        <div 
-                          style={{ width: `${stats.satisfaction.underPct}%` }}
-                          className="bg-orange-500 hover:opacity-90 transition-all duration-300"
-                          title={`Frustração: ${stats.satisfaction.underPct.toFixed(0)}%`}
-                        />
-                      )}
-                      {stats.satisfaction.exactPct > 0 && (
-                        <div 
-                          style={{ width: `${stats.satisfaction.exactPct}%` }}
-                          className="bg-blue-500 hover:opacity-90 transition-all duration-300"
-                          title={`Alinhado: ${stats.satisfaction.exactPct.toFixed(0)}%`}
-                        />
-                      )}
-                      {stats.satisfaction.overPct > 0 && (
-                        <div 
-                          style={{ width: `${stats.satisfaction.overPct}%` }}
-                          className="bg-emerald-500 hover:opacity-90 transition-all duration-300"
-                          title={`Surpresa: ${stats.satisfaction.overPct.toFixed(0)}%`}
-                        />
-                      )}
-                    </div>
-                    
-                    <div className="space-y-1.5 border-t border-border/20 pt-2 text-[10px] text-muted-foreground">
-                      <div className="flex justify-between items-center py-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <span>Desvio Absoluto Médio (MAD)</span>
-                          <UITooltip>
-                            <TooltipTrigger asChild>
-                              <button type="button" className="text-muted-foreground hover:text-foreground transition-colors focus:outline-none shrink-0" aria-label="Mais informações sobre MAD">
-                                <Info className="h-3 w-3" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-70 p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-100">
-                              Mede a <strong>magnitude média do erro</strong> de suas estimativas por tarefa (para mais ou para menos). Quanto menor o valor, mais precisas são suas projeções de satisfação.
-                            </TooltipContent>
-                          </UITooltip>
-                        </div>
-                        <span className="font-bold text-foreground">{stats.satisfaction.mad.toFixed(2)} pts</span>
-                      </div>
-                      <div className="flex justify-between items-center py-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <span>Erro de Tendência (Viés)</span>
-                          <UITooltip>
-                            <TooltipTrigger asChild>
-                              <button type="button" className="text-muted-foreground hover:text-foreground transition-colors focus:outline-none shrink-0" aria-label="Mais informações sobre Viés">
-                                <Info className="h-3 w-3" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-70 p-3 text-xs bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-xl z-100">
-                              Indica a <strong>direção constante do seu erro</strong> (frequentemente chamado de <em>'Bias'</em>). Valores positivos (+) indicam subestimação (a realidade foi mais satisfatória). Valores negativos (-) indicam superestimação (a realidade foi menos satisfatória).
-                            </TooltipContent>
-                          </UITooltip>
-                        </div>
-                        <span className="font-bold text-foreground">{stats.satisfaction.bias > 0 ? "+" : ""}{stats.satisfaction.bias.toFixed(2)} pts</span>
-                      </div>
-                    </div>
-                    
-                    <p className="text-[10px] leading-relaxed italic font-semibold text-muted-foreground pt-1.5 border-t border-border/20">
-                      {stats.satisfaction.interpretation}
-                    </p>
-                  </div>
+                  <CalibrationCard isDifficulty={true}  stats={stats.difficulty} />
+                  <CalibrationCard isDifficulty={false} stats={stats.satisfaction} />
                 </div>
               </div>
             )}
@@ -930,17 +847,10 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                 <div className="w-full min-h-45 sm:min-h-75">
                   <ResponsiveContainer width="100%" height={200}>
                     {chartType === "lines" ? (
-                      <LineChart 
-                        data={chartData} 
+                      <LineChart
+                        data={chartData}
                         margin={{ left: 2, right: 2, top: 10, bottom: 5 }}
-                        onClick={(state) => {
-                          if (state && state.activeTooltipIndex !== undefined) {
-                            const idx = state.activeTooltipIndex
-                            setClickedPointDiff(clickedPointDiff === idx ? null : idx)
-                          } else {
-                            setClickedPointDiff(null)
-                          }
-                        }}
+                        onClick={handleDiffChartClick}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
                         <XAxis
@@ -950,10 +860,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                           tickLine={false}
                           axisLine={false}
                           dy={10}
-                          tickFormatter={(value) => {
-                            const [, m, d] = value.split("-")
-                            return `${d}/${m}`
-                          }}
+                          tickFormatter={formatDateTick}
                         />
                         <YAxis
                           stroke="var(--muted-foreground)"
@@ -1014,17 +921,10 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                         )}
                       </LineChart>
                     ) : (
-                      <BarChart 
-                        data={chartData} 
+                      <BarChart
+                        data={chartData}
                         margin={{ left: 2, right: 2, top: 10, bottom: 5 }}
-                        onClick={(state) => {
-                          if (state && state.activeTooltipIndex !== undefined) {
-                            const idx = state.activeTooltipIndex
-                            setClickedPointDiff(clickedPointDiff === idx ? null : idx)
-                          } else {
-                            setClickedPointDiff(null)
-                          }
-                        }}
+                        onClick={handleDiffChartClick}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
                         <XAxis
@@ -1034,10 +934,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                           tickLine={false}
                           axisLine={false}
                           dy={10}
-                          tickFormatter={(value) => {
-                            const [, m, d] = value.split("-")
-                            return `${d}/${m}`
-                          }}
+                          tickFormatter={formatDateTick}
                         />
                         <YAxis
                           stroke="var(--muted-foreground)"
@@ -1080,17 +977,10 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                 <div className="w-full min-h-45 sm:min-h-75">
                   <ResponsiveContainer width="100%" height={200}>
                     {chartType === "lines" ? (
-                      <LineChart 
-                        data={chartData} 
+                      <LineChart
+                        data={chartData}
                         margin={{ left: 2, right: 2, top: 10, bottom: 5 }}
-                        onClick={(state) => {
-                          if (state && state.activeTooltipIndex !== undefined) {
-                            const idx = state.activeTooltipIndex
-                            setClickedPointSat(clickedPointSat === idx ? null : idx)
-                          } else {
-                            setClickedPointSat(null)
-                          }
-                        }}
+                        onClick={handleSatChartClick}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
                         <XAxis
@@ -1100,10 +990,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                           tickLine={false}
                           axisLine={false}
                           dy={10}
-                          tickFormatter={(value) => {
-                            const [, m, d] = value.split("-")
-                            return `${d}/${m}`
-                          }}
+                          tickFormatter={formatDateTick}
                         />
                         <YAxis
                           stroke="var(--muted-foreground)"
@@ -1164,17 +1051,10 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                         )}
                       </LineChart>
                     ) : (
-                      <BarChart 
-                        data={chartData} 
+                      <BarChart
+                        data={chartData}
                         margin={{ left: 2, right: 2, top: 10, bottom: 5 }}
-                        onClick={(state) => {
-                          if (state && state.activeTooltipIndex !== undefined) {
-                            const idx = state.activeTooltipIndex
-                            setClickedPointSat(clickedPointSat === idx ? null : idx)
-                          } else {
-                            setClickedPointSat(null)
-                          }
-                        }}
+                        onClick={handleSatChartClick}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
                         <XAxis
@@ -1184,10 +1064,7 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
                           tickLine={false}
                           axisLine={false}
                           dy={10}
-                          tickFormatter={(value) => {
-                            const [, m, d] = value.split("-")
-                            return `${d}/${m}`
-                          }}
+                          tickFormatter={formatDateTick}
                         />
                         <YAxis
                           stroke="var(--muted-foreground)"
@@ -1222,7 +1099,394 @@ export function PerformanceChart({ data, customCategories = [], onFilterChange }
             </div>
           </div>
         )}
+
+        {/* ── Correlações ──────────────────────────────────────────── */}
+        <CorrelationSection data={data} customCategories={customCategories ?? []} />
       </div>
-    </Card>
+    </div>
+  )
+}
+
+// ─── Utilitários de correlação ───────────────────────────────────────────────
+
+function pearson(xs: number[], ys: number[]): number | null {
+  const n = xs.length
+  if (n < 3) return null
+  const mx = xs.reduce((a, b) => a + b, 0) / n
+  const my = ys.reduce((a, b) => a + b, 0) / n
+  const num = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0)
+  const den = Math.sqrt(
+    xs.reduce((s, x) => s + (x - mx) ** 2, 0) *
+    ys.reduce((s, y) => s + (y - my) ** 2, 0)
+  )
+  return den === 0 ? null : num / den
+}
+
+function iqrBounds(values: number[]): { lower: number; upper: number } {
+  if (values.length < 4) return { lower: -Infinity, upper: Infinity }
+  const sorted = [...values].sort((a, b) => a - b)
+  const q1 = sorted[Math.floor(sorted.length * 0.25)]
+  const q3 = sorted[Math.floor(sorted.length * 0.75)]
+  const iqr = q3 - q1
+  return { lower: q1 - 1.5 * iqr, upper: q3 + 1.5 * iqr }
+}
+
+function linearRegression(pts: { x: number; y: number }[]): { slope: number; intercept: number } | null {
+  const n = pts.length
+  if (n < 2) return null
+  const sx = pts.reduce((s, p) => s + p.x, 0)
+  const sy = pts.reduce((s, p) => s + p.y, 0)
+  const sxy = pts.reduce((s, p) => s + p.x * p.y, 0)
+  const sx2 = pts.reduce((s, p) => s + p.x * p.x, 0)
+  const denom = n * sx2 - sx * sx
+  if (denom === 0) return null
+  const slope = (n * sxy - sx * sy) / denom
+  const intercept = (sy - slope * sx) / n
+  return { slope, intercept }
+}
+
+function interpretR(r: number | null): { badge: string; color: string; bg: string } {
+  if (r === null) return { badge: "sem dados", color: "text-muted-foreground", bg: "bg-muted/40" }
+  const abs = Math.abs(r)
+  const dir = r > 0 ? "positiva" : "negativa"
+  if (abs < 0.2) return { badge: "sem relação", color: "text-muted-foreground", bg: "bg-muted/40" }
+  if (abs < 0.5) return { badge: `fraca ${dir}`, color: r > 0 ? "text-blue-600" : "text-orange-500", bg: r > 0 ? "bg-blue-500/10" : "bg-orange-500/10" }
+  if (abs < 0.8) return { badge: `moderada ${dir}`, color: r > 0 ? "text-primary" : "text-amber-500", bg: r > 0 ? "bg-primary/10" : "bg-amber-500/10" }
+  return { badge: `forte ${dir}`, color: r > 0 ? "text-green-600" : "text-red-500", bg: r > 0 ? "bg-green-500/10" : "bg-red-500/10" }
+}
+
+function insightText(r: number | null, pos: string, neg: string, neutral: string): string {
+  if (r === null || Math.abs(r) < 0.2) return neutral
+  return r > 0 ? pos : neg
+}
+
+function fmtR(r: number | null) {
+  if (r === null) return "—"
+  return (r >= 0 ? "+" : "") + r.toFixed(2)
+}
+
+const TIME_BUCKETS = [
+  { label: "< 30min",  min: 0,     max: 1800   },
+  { label: "30–60min", min: 1800,  max: 3600   },
+  { label: "1–2h",     min: 3600,  max: 7200   },
+  { label: "2–4h",     min: 7200,  max: 14400  },
+  { label: "4h+",      min: 14400, max: Infinity },
+]
+
+// ─── Seção de Correlações ────────────────────────────────────────────────────
+
+function CorrelationSection({ data, customCategories }: { data: PerformanceRecord[]; customCategories: CustomCategory[] }) {
+  // Relaxed filter: any task with both ratings present (even 0)
+  const valid = useMemo(() =>
+    data.filter(d => d.actualDifficulty != null && d.actualSatisfaction != null), [data])
+
+  const withTime = useMemo(() =>
+    valid.filter(d => (d.elapsedTime ?? 0) > 0), [valid])
+
+  if (data.length > 0 && valid.length === 0) return (
+    <div className="pt-6 border-t border-border/40">
+      <p className="text-xs text-muted-foreground">
+        Conclua tarefas com avaliação de dificuldade e satisfação para ver as correlações.
+      </p>
+    </div>
+  )
+
+  if (valid.length < 1) return null
+
+  const [hideOutliers, setHideOutliers] = useState(true)
+
+  const diffVsSatR = pearson(valid.map(d => d.actualDifficulty), valid.map(d => d.actualSatisfaction))
+  const total = valid.length
+  const q = {
+    hardSat:   valid.filter(d => d.actualDifficulty >= 3 && d.actualSatisfaction >= 3).length,
+    hardUnsat: valid.filter(d => d.actualDifficulty >= 3 && d.actualSatisfaction < 3).length,
+    easySat:   valid.filter(d => d.actualDifficulty < 3  && d.actualSatisfaction >= 3).length,
+    easyUnsat: valid.filter(d => d.actualDifficulty < 3  && d.actualSatisfaction < 3).length,
+  }
+  const pct = (n: number) => total > 0 ? Math.round(n / total * 100) : 0
+
+  const timeVsSatR  = withTime.length >= 3 ? pearson(withTime.map(d => d.elapsedTime!), withTime.map(d => d.actualSatisfaction)) : null
+  const timeVsDiffR = withTime.length >= 3 ? pearson(withTime.map(d => d.elapsedTime!), withTime.map(d => d.actualDifficulty)) : null
+
+  const catColor = (catId?: string) => {
+    const color = customCategories.find(c => c.id === catId)?.color ?? "#94a3b8"
+    return isValidCSSColor(color) ? color : "#94a3b8"
+  }
+
+  // Dados individuais ordenados por tempo — um ponto por tarefa, eixo X em minutos
+  const timePoints = useMemo(() => [...withTime]
+    .sort((a, b) => (a.elapsedTime ?? 0) - (b.elapsedTime ?? 0))
+    .map(d => ({
+      minutes: Math.round((d.elapsedTime ?? 0) / 60),
+      satisfaction: d.actualSatisfaction,
+      difficulty: d.actualDifficulty,
+      title: d.title ?? "",
+      category: d.category as string ?? "others",
+      color: catColor(d.category as string),
+      isPeriodic: d.isPeriodic ?? false,
+    })), [withTime, customCategories]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Agrupa por categoria para Scatter separado por cor
+  // IQR bounds para detecção de outliers na dimensão tempo
+  const { lower: iqrLower, upper: iqrUpper } = useMemo(
+    () => iqrBounds(timePoints.map(p => p.minutes)),
+    [timePoints]
+  )
+  const isOutlier = (p: { minutes: number }) => p.minutes < iqrLower || p.minutes > iqrUpper
+  const outlierCount = useMemo(() => timePoints.filter(isOutlier).length, [timePoints, iqrLower, iqrUpper]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pontos filtrados (sem outliers) ou todos (com outliers identificados)
+  const visiblePoints = useMemo(
+    () => hideOutliers ? timePoints.filter(p => !isOutlier(p)) : timePoints, // eslint-disable-line react-hooks/exhaustive-deps
+    [timePoints, hideOutliers, iqrLower, iqrUpper]
+  )
+
+  const catGroups = useMemo(() => {
+    const map = new Map<string, typeof visiblePoints>()
+    visiblePoints.forEach(p => {
+      if (!map.has(p.category)) map.set(p.category, [])
+      map.get(p.category)!.push(p)
+    })
+    return [...map.entries()].map(([catId, points]) => ({
+      catId,
+      label: customCategories.find(c => c.id === catId)?.label ?? "Outros",
+      color: points[0].color,
+      points,
+    }))
+  }, [visiblePoints, customCategories])
+
+  const diffVsSatInterp = interpretR(diffVsSatR)
+
+  const QUADRANTS = [
+    { key: "hardSat",   count: q.hardSat,   label: "Difícil & Satisfatório", desc: "Desafio com recompensa",   accent: "#22c55e" },
+    { key: "easySat",   count: q.easySat,   label: "Fácil & Satisfatório",   desc: "Vitória confortável",      accent: "#3b82f6" },
+    { key: "hardUnsat", count: q.hardUnsat, label: "Difícil & Frustrante",   desc: "Esforço sem recompensa",   accent: "#ef4444" },
+    { key: "easyUnsat", count: q.easyUnsat, label: "Fácil & Frustrante",     desc: "Baixo engajamento",         accent: "#f59e0b" },
+  ]
+  const dominant = [...QUADRANTS].sort((a, b) => b.count - a.count)[0]
+
+  return (
+    <div className="pt-6 border-t border-border/40 space-y-10">
+
+      {/* ── 1. Dificuldade × Satisfação ───────────────────────────── */}
+      <div className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <p className="text-sm font-semibold text-foreground">Dificuldade × Satisfação</p>
+          <span className="text-xs text-muted-foreground">
+            {total} {total === 1 ? "tarefa" : "tarefas"} avaliadas
+          </span>
+        </div>
+
+        {/* Insight baseado na distribuição dos quadrantes (mais intuitivo que o r) */}
+        {(() => {
+          const positiveTotal = q.hardSat + q.easySat
+          const positivePct   = pct(positiveTotal)
+          const dominantLabel = dominant.label
+          const dominantPct   = pct(dominant.count)
+          let text = ""
+          if (dominant.count === 0) {
+            text = "Nenhuma tarefa avaliada ainda."
+          } else if (positivePct >= 70) {
+            text = `${positivePct}% das suas tarefas foram satisfatórias.`
+          } else if (q.hardUnsat > q.hardSat) {
+            text = "Tarefas difíceis tendem a frustrar mais do que recompensar."
+          } else {
+            text = "Distribuição variada entre os quadrantes."
+          }
+          return (
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              <span className="font-semibold" style={{ color: dominant.count > 0 ? dominant.accent : undefined }}>
+                {dominantLabel}.{" "}
+              </span>
+              {text}
+            </p>
+          )
+        })()}
+
+        {/* Quadrantes — clean, minimal */}
+        <div className="grid grid-cols-2 gap-2">
+          {QUADRANTS.map(qd => (
+            <div
+              key={qd.key}
+              className="border rounded-xl p-3 bg-card"
+            >
+              <p className="text-[11px] font-medium text-foreground leading-tight">{qd.label}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 mb-3">{qd.desc}</p>
+              <div className="flex items-end justify-between">
+                <span
+                  className="text-2xl font-bold leading-none"
+                  style={{ color: qd.count > 0 ? qd.accent : undefined }}
+                >
+                  {qd.count}
+                </span>
+                <span className="text-[10px] text-muted-foreground">{pct(qd.count)}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 2. Tempo × Avaliações — Line chart ────────────────────── */}
+      {timePoints.length >= 1 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-foreground">Tempo × Avaliações</p>
+            <div className="flex items-center gap-3">
+              {outlierCount > 0 && (
+                <button
+                  onClick={() => setHideOutliers(h => !h)}
+                  className={cn(
+                    "text-[11px] px-2.5 py-1 rounded-lg border transition-colors",
+                    hideOutliers
+                      ? "border-border text-muted-foreground hover:bg-muted/40"
+                      : "border-primary/30 text-primary bg-primary/5"
+                  )}
+                >
+                  {hideOutliers ? `Mostrar ${outlierCount} outlier${outlierCount > 1 ? "s" : ""}` : "Ocultar outliers"}
+                </button>
+              )}
+              <span className="text-xs text-muted-foreground">{withTime.length} tarefas</span>
+            </div>
+          </div>
+
+          {/* Legenda de categorias */}
+          <div className="flex flex-wrap gap-3">
+            {catGroups.map(g => (
+              <div key={g.catId} className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
+                <span className="text-[11px] text-muted-foreground">{g.label}</span>
+              </div>
+            ))}
+            <span className="text-[11px] text-muted-foreground ml-auto opacity-60">— tendência</span>
+          </div>
+
+          {/* Dois gráficos lado a lado */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {([
+              { metric: "difficulty" as const, label: "Dificuldade", r: timeVsDiffR, yLabel: (v: number) => ({ 1: "Fácil", 3: "Médio", 5: "Difícil" }[v] ?? String(v)) },
+              { metric: "satisfaction" as const, label: "Satisfação", r: timeVsSatR,  yLabel: (v: number) => ({ 1: "Baixa",  3: "Média",  5: "Alta"   }[v] ?? String(v)) },
+            ]).map(({ metric, label, r, yLabel }) => {
+              // Dados para scatter (todos os pontos)
+              const scatterData = timePoints.map(p => ({ ...p, value: p[metric] }))
+
+              // Regressão linear → linha de tendência
+              const reg = linearRegression(scatterData.map(p => ({ x: p.minutes, y: p.value })))
+              const xs = scatterData.map(p => p.minutes)
+              const minX = Math.min(...xs)
+              const maxX = Math.max(...xs)
+              const trendData = reg
+                ? [{ tx: minX, tv: reg.slope * minX + reg.intercept }, { tx: maxX, tv: reg.slope * maxX + reg.intercept }]
+                : []
+
+              const interp = interpretR(r)
+
+              return (
+                <div key={metric} className="space-y-2">
+                  {/* Header do sub-gráfico */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-foreground">{label}</p>
+                    {r !== null && (
+                      <span className={cn("text-[11px] font-semibold", interp.color)}>
+                        {fmtR(r)} · {interp.badge}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-foreground">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <ComposedChart margin={{ top: 8, right: 8, bottom: 24, left: 0 }}>
+                        {/* Eixos */}
+                        <XAxis
+                          dataKey="minutes"
+                          type="number"
+                          domain={['dataMin - 1', 'dataMax + 1']}
+                          tick={{ fontSize: 10, fill: "currentColor", opacity: 0.6 }}
+                          axisLine={{ stroke: "currentColor", opacity: 0.12 }}
+                          tickLine={false}
+                          tickFormatter={v => `${v}m`}
+                          label={{ value: "min", position: "insideBottom", offset: -12, fontSize: 10, fill: "currentColor", opacity: 0.45 }}
+                          allowDuplicatedCategory={false}
+                        />
+                        <YAxis
+                          type="number"
+                          domain={[0.5, 5.5]}
+                          ticks={[1, 2, 3, 4, 5]}
+                          tick={{ fontSize: 10, fill: "currentColor", opacity: 0.6 }}
+                          axisLine={{ stroke: "currentColor", opacity: 0.12 }}
+                          tickLine={false}
+                          tickFormatter={yLabel}
+                          width={46}
+                        />
+
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null
+                            const p = payload[0]?.payload
+                            if (!p?.title) return null
+                            const catLabel = customCategories.find(c => c.id === p.category)?.label ?? "Outros"
+                            return (
+                              <div className="bg-popover border border-border rounded-xl px-3 py-2 text-xs shadow-lg space-y-1">
+                                <p className="font-semibold text-foreground truncate max-w-44">{p.title}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                                  <span className="text-muted-foreground">{catLabel}</span>
+                                </div>
+                                <p className="text-muted-foreground">
+                                  Tempo: <span className="font-semibold text-foreground">{p.minutes}m</span>
+                                  {" · "}{label}: <span className="font-semibold text-foreground">{p.value}/5</span>
+                                </p>
+                              </div>
+                            )
+                          }}
+                        />
+
+                        {/* Dots por categoria */}
+                        {catGroups.map(g => (
+                          <Scatter
+                            key={g.catId}
+                            data={scatterData.filter(p => p.category === g.catId)}
+                            dataKey="value"
+                            shape={(props: any) => {
+                              const { cx, cy, payload } = props
+                              const outlier = !hideOutliers && isOutlier(payload)
+                              return (
+                                <circle
+                                  cx={cx} cy={cy} r={outlier ? 4 : 5}
+                                  fill={outlier ? "#94a3b8" : g.color}
+                                  fillOpacity={outlier ? 0.25 : payload.isPeriodic ? 0.4 : 0.85}
+                                  stroke={outlier ? "#94a3b8" : payload.isPeriodic ? g.color : "none"}
+                                  strokeWidth={outlier ? 1 : payload.isPeriodic ? 2 : 0}
+                                  strokeDasharray={outlier ? "none" : payload.isPeriodic ? "3 2" : "none"}
+                                />
+                              )
+                            }}
+                          />
+                        ))}
+
+                        {/* Linha de tendência (regressão linear) */}
+                        {trendData.length === 2 && (
+                          <Line
+                            data={trendData}
+                            dataKey="tv"
+                            type="linear"
+                            stroke="currentColor"
+                            strokeWidth={1.5}
+                            strokeDasharray="6 3"
+                            strokeOpacity={0.4}
+                            dot={false}
+                            legendType="none"
+                            isAnimationActive={false}
+                          />
+                        )}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

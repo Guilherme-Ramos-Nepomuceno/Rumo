@@ -1,6 +1,5 @@
 "use client"
 
-import { SummarySection } from "@/components/summary-section"
 import { CompletedTasksSection } from "@/components/completed-tasks-section"
 import type { Task, CustomCategory } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -14,49 +13,9 @@ interface DashboardSidebarProps {
   onRepeatTask: (task: Task) => void
 }
 
-export function DashboardSidebar({ tasks, completedTasks, customCategories, onRepeatTask }: DashboardSidebarProps) {
-  const today = new Date()
-  const isToday = (d: Date) => d && d.toDateString() === today.toDateString()
-  const weekStart = new Date(today)
-  weekStart.setDate(today.getDate() - today.getDay())
-  const isThisWeek = (d: Date) => d && d >= weekStart && d <= today
-
-  const todayActive = tasks.filter(t => isToday(t.startDate) || (t.startDate <= today && t.endDate >= today))
-  const todayCompleted = completedTasks.filter(t => t.completedAt && isToday(t.completedAt))
-  
-  const byCategory: Record<string, number> = {}
-  todayActive.forEach(t => {
-    byCategory[t.category] = (byCategory[t.category] || 0) + 1
-  })
-  todayCompleted.forEach(t => {
-    byCategory[t.category] = (byCategory[t.category] || 0) + 1
-  })
-
-  const dailySummary = {
-    date: today,
-    totalTasks: todayActive.length + todayCompleted.length,
-    completedTasks: todayCompleted.length,
-    byCategory
-  }
-
-  const weekActive = tasks.filter(t => isThisWeek(t.startDate) || (t.startDate <= today && t.endDate >= weekStart))
-  const weekCompletedTasks = completedTasks.filter(t => t.completedAt && isThisWeek(t.completedAt))
-
-  const weeklySummary = {
-    totalTasks: weekActive.length + weekCompletedTasks.length,
-    completedTasks: weekCompletedTasks.length
-  }
-
+export function DashboardSidebar({ completedTasks, customCategories, onRepeatTask }: DashboardSidebarProps) {
   return (
     <div className="space-y-8">
-      <div className="hidden xl:block">
-        <SummarySection
-          dailySummary={dailySummary}
-          weeklySummary={weeklySummary}
-          customCategories={customCategories}
-        />
-      </div>
-
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-foreground">Concluídas Recentemente</h2>
@@ -67,10 +26,10 @@ export function DashboardSidebar({ tasks, completedTasks, customCategories, onRe
             </Button>
           </Link>
         </div>
-        <CompletedTasksSection 
-          tasks={completedTasks.slice(0, 5)} 
+        <CompletedTasksSection
+          tasks={completedTasks.slice(0, 5)}
           onRepeat={onRepeatTask}
-          customCategories={customCategories} 
+          customCategories={customCategories}
         />
       </section>
     </div>

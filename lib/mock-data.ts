@@ -24,7 +24,6 @@ export const mockTasks: Task[] = [
     ],
     currentSubtaskIndex: 1,
     tags: ["react", "frontend"],
-    importance: "urgent-important",
     order: 0,
   },
   {
@@ -41,7 +40,6 @@ export const mockTasks: Task[] = [
     expectedDifficulty: "easy",
     expectedSatisfaction: 5,
     tags: ["lazer", "leitura"],
-    importance: "not-urgent-not-important",
     order: 5,
   },
   {
@@ -65,7 +63,6 @@ export const mockTasks: Task[] = [
     ],
     currentSubtaskIndex: 2,
     tags: ["typescript", "programação"],
-    importance: "not-urgent-important",
     order: 6,
   },
   {
@@ -84,7 +81,6 @@ export const mockTasks: Task[] = [
     expectedDifficulty: "hard",
     expectedSatisfaction: 5,
     tags: ["saúde", "fitness"],
-    importance: "not-urgent-important",
     order: 1,
   },
   {
@@ -102,7 +98,6 @@ export const mockTasks: Task[] = [
     expectedDifficulty: "easy",
     expectedSatisfaction: 3,
     tags: ["trabalho", "reunião"],
-    importance: "urgent-not-important",
     order: 2,
   },
   {
@@ -118,7 +113,6 @@ export const mockTasks: Task[] = [
     progress: 60,
     expectedSatisfaction: 5,
     tags: ["saúde", "hábito"],
-    importance: "not-urgent-important",
     order: 3,
   },
   {
@@ -137,7 +131,6 @@ export const mockTasks: Task[] = [
     expectedDifficulty: "medium",
     expectedSatisfaction: 4,
     tags: ["alimentação", "planejamento"],
-    importance: "not-urgent-not-important",
     order: 4,
   },
 ]
@@ -162,7 +155,6 @@ export const mockCompletedTasks: Task[] = [
     actualDifficulty: "easy",
     actualSatisfaction: 5,
     tags: ["saúde", "mindfulness"],
-    importance: "not-urgent-important",
     order: 0,
     completedAt: new Date(Date.now() - 82800000),
   },
@@ -184,7 +176,6 @@ export const mockCompletedTasks: Task[] = [
     actualDifficulty: "hard",
     actualSatisfaction: 4,
     tags: ["trabalho", "código"],
-    importance: "urgent-important",
     order: 1,
     completedAt: new Date(Date.now() - 79200000),
   },
@@ -204,7 +195,6 @@ export const mockCompletedTasks: Task[] = [
     actualDifficulty: "easy",
     actualSatisfaction: 5,
     tags: ["casa", "organização"],
-    importance: "not-urgent-not-important",
     order: 2,
     completedAt: new Date(Date.now() - 169200000),
   },
