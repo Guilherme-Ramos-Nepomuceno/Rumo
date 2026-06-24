@@ -74,7 +74,7 @@ export function IconPickerModal({ open, onOpenChange, onSelectIcon, currentIcon 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
+      <DialogContent className="sm:max-w-150 max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Selecionar Ícone</DialogTitle>
           <DialogDescription>

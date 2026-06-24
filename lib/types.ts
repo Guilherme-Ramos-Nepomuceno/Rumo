@@ -2,12 +2,6 @@ export type Category = "study" | "work" | "training" | "leisure" | "water" | "fo
 
 export type Difficulty = "very-easy" | "easy" | "medium" | "hard" | "very-hard"
 
-export type Importance =
-  | "urgent-important"
-  | "not-urgent-important"
-  | "urgent-not-important"
-  | "not-urgent-not-important"
-
 export interface Subtask {
   id: string
   title: string
@@ -42,8 +36,8 @@ export interface Task {
   progress: number
   estimatedTime?: number // em segundos
   elapsedTime?: number // em segundos
+  activeStartedAt?: number // timestamp ms — quando o Play foi clicado (sincronizado com backend)
   tags?: string[]
-  importance: Importance
   order: number
   completedAt?: Date
 }
@@ -63,11 +57,19 @@ export interface ActivityRecord {
 
 export type TimeView = "day" | "week" | "month" | "semester" | "year"
 
-export interface CategoryDefinition {
+export interface Objective {
   id: string
-  label: string
-  icon: string
-  color: string
+  title: string
+  description?: string
+  categoryId?: string
+  category?: { id: string; label: string; color?: string; icon?: string }
+  targetDate?: Date
+  status: 'active' | 'achieved' | 'abandoned'
+  progress: number          // 0-100
+  taskIds: string[]
+  taskCount: number
+  completedTaskCount: number
+  createdAt?: Date
 }
 
 export interface CustomCategory {

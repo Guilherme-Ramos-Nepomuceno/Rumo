@@ -82,7 +82,7 @@ export function ColorPicker({ value, onChange, label, colors = [] }: ColorPicker
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[300px]">
+        <DialogContent className="sm:max-w-75">
           <DialogHeader>
             <DialogTitle>Escolher Cor</DialogTitle>
             <DialogDescription>Selecione uma cor customizada</DialogDescription>

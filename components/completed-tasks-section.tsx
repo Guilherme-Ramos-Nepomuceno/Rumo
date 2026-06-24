@@ -132,15 +132,6 @@ export function CompletedTasksSection({ tasks, onRepeat, customCategories = [] }
                   )}
                 </div>
 
-                {task.tags && task.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {task.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </Card>

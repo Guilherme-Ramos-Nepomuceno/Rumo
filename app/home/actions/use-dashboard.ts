@@ -1,9 +1,11 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import type { Task, Difficulty, CustomCategory, Category, Subtask } from "@/lib/types"
 import { api } from "@/lib/api"
+import { parseTask } from "@/lib/task-utils"
+import { useModalState } from "./use-modal-state"
 
 interface CurrentUser {
   id: string
@@ -13,95 +15,26 @@ interface CurrentUser {
 
 export function useDashboard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [tasks, setTasks] = useState<Task[]>([])
   const [completedTasks, setCompletedTasks] = useState<Task[]>([])
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [detailModalOpen, setDetailModalOpen] = useState(false)
-  const [newTaskModalOpen, setNewTaskModalOpen] = useState(false)
-  const [completionModalOpen, setCompletionModalOpen] = useState(false)
-  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false)
-  const [taskToComplete, setTaskToComplete] = useState<Task | null>(null)
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([])
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
-  const [activityData, setActivityData] = useState<any[]>([])
-  const [performanceData, setPerformanceData] = useState<any[]>([])
-  const [activityFilters, setActivityFilters] = useState<{ startDate?: string; endDate?: string; categoryId?: string }>({})
-  const [performanceFilters, setPerformanceFilters] = useState<{ month?: string; categoryId?: string }>({})
   const [activityCount, setActivityCount] = useState(0)
-  const [showCategoryWarning, setShowCategoryWarning] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [defaultCategoryId, setDefaultCategoryIdState] = useState<string>("")
 
-  // Debounce timers
+  const modals = useModalState(customCategories)
+
   const storageTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const activityTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const performanceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const parseTask = (t: any): Task => {
-    // Resolve category to a string (ID or legacy key)
-    let category = t.category;
-    if (typeof t.category === "object" && t.category !== null) {
-      category = t.category.id;
-    } else if (t.categoryId) {
-      category = t.categoryId;
-    } else if (t.category_id) {
-      category = t.category_id;
-    }
-
-    return {
-      ...t,
-      category,
-      startDate: t.startDate ? new Date(t.startDate) : new Date(),
-      endDate: t.endDate ? new Date(t.endDate) : new Date(),
-      createdAt: t.createdAt ? new Date(t.createdAt) : undefined,
-      completedAt: t.completedAt ? new Date(t.completedAt) : undefined,
-      subtasks: t.subtasks?.map((st: any) => ({
-        ...st,
-        completedAt: st.completedAt ? new Date(st.completedAt) : undefined,
-      })),
-    }
-  }
-
-  const debouncedFetchActivityData = useCallback((filters: { startDate?: string; endDate?: string; categoryId?: string } = {}) => {
-    if (activityTimeoutRef.current) clearTimeout(activityTimeoutRef.current);
-    activityTimeoutRef.current = setTimeout(() => {
-      if (navigator.onLine) {
-        try {
-          setActivityFilters(filters);
-          api.stats.activity(filters).then(activity => {
-            setActivityData(activity.slice(0, 100));
-          }).catch(e => {
-            console.error("Erro ao carregar atividades:", e);
-          });
-        } catch (e) {
-          console.error("Erro ao carregar atividades:", e);
-        }
-      }
-    }, 1500);
-  }, []);
-
-  const debouncedFetchPerformanceData = useCallback((filters: { month?: string; categoryId?: string } = {}) => {
-    if (performanceTimeoutRef.current) clearTimeout(performanceTimeoutRef.current);
-    performanceTimeoutRef.current = setTimeout(() => {
-      if (navigator.onLine) {
-        try {
-          setPerformanceFilters(filters);
-          api.stats.performance(filters).then(performance => {
-            setPerformanceData(performance.slice(0, 100));
-          }).catch(e => {
-            console.error("Erro ao carregar performance:", e);
-          });
-        } catch (e) {
-          console.error("Erro ao carregar performance:", e);
-        }
-      }
-    }, 1500);
-  }, []);
 
   useEffect(() => {
     setMounted(true)
-    const token = localStorage.getItem("auth_token")
+    const token = localStorage.getItem("token")
     const userStr = localStorage.getItem("current_user")
+    const savedDefault = localStorage.getItem("rumo_default_category")
+    if (savedDefault) setDefaultCategoryIdState(savedDefault)
     
     if (!token) {
       router.push("/login")
@@ -114,26 +47,41 @@ export function useDashboard() {
 
     // Load tasks and initial context
     const loadData = async () => {
-      if (navigator.onLine) {
-        try {
-          const response = await api.tasks.list()
-          setTasks(response.tasks.slice(0, 200).map(parseTask))
-          setCustomCategories(response.categories)
-          setActivityCount(response.activityCount)
-          return
-        } catch (e) {
-          console.error("Erro ao carregar dados do backend:", e)
+      try {
+        if (navigator.onLine) {
+          try {
+            const response = await api.tasks.list()
+
+            const storedRaw = localStorage.getItem("rumo_tasks")
+            const localMap = storedRaw
+              ? new Map<string, any>((JSON.parse(storedRaw) as any[]).map(t => [t.id, t]))
+              : new Map<string, any>()
+
+            const tasks = response.tasks.slice(0, 200).map(parseTask).map(task => {
+              if (task.status === "in-progress" && !task.activeStartedAt) {
+                const local = localMap.get(task.id)
+                if (local?.activeStartedAt) {
+                  return { ...task, activeStartedAt: Number(local.activeStartedAt), elapsedTime: local.elapsedTime ?? task.elapsedTime }
+                }
+              }
+              return task
+            })
+
+            setTasks(tasks)
+            setCustomCategories(response.categories)
+            setActivityCount(response.activityCount)
+            return
+          } catch (e) {
+            console.error("Erro ao carregar dados do backend:", e)
+          }
         }
-      }
 
-      const storedTasks = localStorage.getItem("rumo_tasks")
-      if (storedTasks) {
-        setTasks(JSON.parse(storedTasks).slice(0, 200).map(parseTask))
-      }
-
-      const storedCategories = localStorage.getItem("rumo_custom_categories")
-      if (storedCategories) {
-        setCustomCategories(JSON.parse(storedCategories))
+        const storedTasks = localStorage.getItem("rumo_tasks")
+        if (storedTasks) setTasks(JSON.parse(storedTasks).slice(0, 200).map(parseTask))
+        const storedCategories = localStorage.getItem("rumo_custom_categories")
+        if (storedCategories) setCustomCategories(JSON.parse(storedCategories))
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -161,10 +109,16 @@ export function useDashboard() {
 
     loadCompletedTasks()
 
-    // Load Stats Initial
-    debouncedFetchActivityData()
-    debouncedFetchPerformanceData()
-  }, [router, debouncedFetchActivityData, debouncedFetchPerformanceData])
+  }, [router])
+
+  // Open new task modal when redirected from another page with ?newTask=1
+  useEffect(() => {
+    if (!mounted) return
+    if (searchParams?.get("newTask") === "1") {
+      modals.handleOpenNewTaskModal()
+      router.replace("/home")
+    }
+  }, [mounted, searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save state to localStorage with debounce to prevent excessive writes
   useEffect(() => {
@@ -184,45 +138,27 @@ export function useDashboard() {
   }, [tasks, completedTasks, customCategories, mounted])
 
   const handleLogout = () => {
-    localStorage.removeItem("auth_token")
+    localStorage.removeItem("token")
     localStorage.removeItem("current_user")
     router.push("/login")
   }
 
-  const handleOpenNewTaskModal = () => {
-    setTaskToEdit(null)
-    if (customCategories.length === 0) {
-      setShowCategoryWarning(true);
-      setCategoryManagerOpen(true);
-      return;
-    }
-    setNewTaskModalOpen(true);
-  }
-
-  const handleEditTask = (task: Task) => {
-    setTaskToEdit(task)
-    setDetailModalOpen(false)
-    setNewTaskModalOpen(true)
-  }
-
-  const handleViewDetails = (task: Task) => {
-    setSelectedTask(task)
-    setDetailModalOpen(true)
-  }
-
   const handleStartTask = async (taskId: string) => {
+    const now = Date.now()
+    const nowIso = new Date(now).toISOString()
+
     setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: "in-progress" as const } : t))
+      prev.map((t) => (t.id === taskId ? { ...t, status: "in-progress" as const, activeStartedAt: now } : t))
     )
-    
+
     try {
       if (navigator.onLine) {
-        await api.tasks.update(taskId, { status: "in-progress" })
+        await api.tasks.update(taskId, { status: "in-progress", activeStartedAt: now })
       } else {
-        api.sync.push("update_task", { id: taskId, status: "in-progress" })
+        api.sync.push("update_task", { id: taskId, status: "in-progress", active_started_at: nowIso })
       }
     } catch (e) {
-      api.sync.push("update_task", { id: taskId, status: "in-progress" })
+      api.sync.push("update_task", { id: taskId, status: "in-progress", active_started_at: nowIso })
     }
   }
 
@@ -233,7 +169,8 @@ export function useDashboard() {
           ? {
               ...t,
               status: "paused" as const,
-              elapsedTime: elapsedTime ?? t.elapsedTime
+              elapsedTime: elapsedTime ?? t.elapsedTime,
+              activeStartedAt: undefined,
             }
           : t
       )
@@ -243,29 +180,35 @@ export function useDashboard() {
       if (navigator.onLine) {
         await api.tasks.update(taskId, {
           status: "paused",
-          elapsedTime: elapsedTime
+          elapsedTime: elapsedTime,
+          activeStartedAt: undefined,
         })
       } else {
         api.sync.push("update_task", {
           id: taskId,
           status: "paused",
-          elapsedTime: elapsedTime
+          elapsedTime: elapsedTime,
+          active_started_at: null,
         })
       }
     } catch (e) {
       api.sync.push("update_task", {
         id: taskId,
         status: "paused",
-        elapsedTime: elapsedTime
+        elapsedTime: elapsedTime,
+        active_started_at: null,
       })
     }
   }
 
-  const handleCompleteTask = (taskId: string) => {
+  const handleCompleteTask = (taskId: string, elapsedTime?: number) => {
     const task = tasks.find((t) => t.id === taskId)
     if (!task) return
-    setTaskToComplete(task)
-    setCompletionModalOpen(true)
+    const taskWithElapsed = elapsedTime !== undefined
+      ? { ...task, elapsedTime, activeStartedAt: undefined }
+      : task
+    modals.setTaskToComplete(taskWithElapsed)
+    modals.setCompletionModalOpen(true)
   }
 
   const handleNextStep = async (taskId: string) => {
@@ -335,31 +278,46 @@ export function useDashboard() {
   }
 
   const handleCompletionSubmit = async (difficulty: Difficulty, satisfaction: number) => {
-    if (!taskToComplete) return
+    if (!modals.taskToComplete) return
     const completedTask: Task = {
-      ...taskToComplete,
+      ...modals.taskToComplete,
       status: "completed",
       progress: 100,
       actualDifficulty: difficulty,
       actualSatisfaction: satisfaction,
       completedAt: new Date(),
     }
-    setTasks((prev) => prev.filter((t) => t.id !== taskToComplete.id))
+    setTasks((prev) => prev.filter((t) => t.id !== modals.taskToComplete!.id))
     setCompletedTasks((prev) => [completedTask, ...prev])
     setActivityCount((prev) => prev + 1)
-    setTaskToComplete(null)
+    modals.setTaskToComplete(null)
 
     try {
       if (navigator.onLine) {
         await api.tasks.update(completedTask.id, completedTask)
-        debouncedFetchActivityData(activityFilters)
-        debouncedFetchPerformanceData(performanceFilters)
       } else {
         api.sync.push("complete_task", completedTask)
       }
     } catch (e) {
       api.sync.push("complete_task", completedTask)
     }
+  }
+
+  const handleReorderUpcoming = (taskId: string, direction: "up" | "down") => {
+    setTasks((prev) => {
+      const pending = prev.filter((t) => t.status === "pending").sort((a, b) => a.order - b.order)
+      const idx = pending.findIndex((t) => t.id === taskId)
+      if (idx === -1) return prev
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1
+      if (swapIdx < 0 || swapIdx >= pending.length) return prev
+      const cur = pending[idx]
+      const swap = pending[swapIdx]
+      return prev.map((t) => {
+        if (t.id === cur.id) return { ...t, order: swap.order }
+        if (t.id === swap.id) return { ...t, order: cur.order }
+        return t
+      })
+    })
   }
 
   const handleReorderKanban = (taskId: string, direction: "up" | "down", column: "paused" | "in-progress") => {
@@ -507,13 +465,13 @@ export function useDashboard() {
   }
 
   const handleAddTask = async (taskData: any) => {
-    if (taskToEdit) {
+    if (modals.taskToEdit) {
       const updatedTask: Task = {
-        ...taskToEdit,
+        ...modals.taskToEdit,
         title: taskData.title,
         description: taskData.description || "",
         category: taskData.category as Category,
-        estimatedTime: taskData.estimatedTime,
+        estimatedTime: taskData.estimatedTime != null ? Number(taskData.estimatedTime) : (modals.taskToEdit?.estimatedTime ?? 0),
         startDate: new Date(taskData.startDate || new Date()),
         endDate: new Date(taskData.endDate || new Date()),
         startTime: taskData.startTime,
@@ -525,8 +483,8 @@ export function useDashboard() {
         currentSubtaskIndex: taskData.subtasks && taskData.subtasks.length > 0 ? 0 : undefined,
       }
 
-      setTasks((prev) => prev.map((t) => (t.id === taskToEdit.id ? updatedTask : t)))
-      setTaskToEdit(null)
+      setTasks((prev) => prev.map((t) => (t.id === modals.taskToEdit!.id ? updatedTask : t)))
+      modals.setTaskToEdit(null)
 
       try {
         if (navigator.onLine) {
@@ -538,9 +496,6 @@ export function useDashboard() {
           const responseTask = await api.tasks.update(updatedTask.id, updatedTask)
           const parsedResponseTask = parseTask(responseTask)
           setTasks((prev) => prev.map(t => t.id === updatedTask.id ? parsedResponseTask : t))
-
-          debouncedFetchActivityData(activityFilters)
-          debouncedFetchPerformanceData(performanceFilters)
         } else {
           api.sync.push("update_task", updatedTask)
         }
@@ -551,6 +506,11 @@ export function useDashboard() {
       return
     }
 
+    // estimatedTime pode vir como string do FormData — garantir número
+    const estimatedTimeSecs = taskData.estimatedTime != null
+      ? Number(taskData.estimatedTime)
+      : 0
+
     const newTask: Task = {
       id: crypto.randomUUID(),
       title: taskData.title,
@@ -558,17 +518,17 @@ export function useDashboard() {
       status: "pending",
       order: tasks.filter((t) => t.status === "pending").length,
       category: taskData.category as Category,
-      estimatedTime: taskData.estimatedTime,
+      estimatedTime: estimatedTimeSecs,
       elapsedTime: 0,
       progress: 0,
       startDate: new Date(taskData.startDate || new Date()),
       endDate: new Date(taskData.endDate || new Date()),
       startTime: taskData.startTime,
       endTime: taskData.endTime,
-      isPeriodic: taskData.periodicValue !== undefined,
+      // isPeriodic vem como boolean do modal — não confundir com periodicValue
+      isPeriodic: Boolean(taskData.isPeriodic),
       expectedDifficulty: taskData.difficulty || "medium",
       expectedSatisfaction: Number(taskData.satisfaction) || 3,
-      importance: "not-urgent-important",
       subtasks: taskData.subtasks,
       currentSubtaskIndex: taskData.subtasks && taskData.subtasks.length > 0 ? 0 : undefined,
     }
@@ -590,10 +550,19 @@ export function useDashboard() {
         const parsedCreatedTask = parseTask(createdTask)
         setTasks((prev) => prev.map(t => t.id === newTask.id ? parsedCreatedTask : t))
 
-        debouncedFetchActivityData(activityFilters)
-        debouncedFetchPerformanceData(performanceFilters)
+        // Vincular ao objetivo selecionado, se houver
+        if (taskData.objectiveId) {
+          api.objectives.attachTask(taskData.objectiveId, parsedCreatedTask.id).catch(console.error)
+        }
       } else {
         api.sync.push("create_task", newTask)
+        // Enfileirar vínculo com objetivo para processar quando voltar online
+        if (taskData.objectiveId) {
+          api.sync.push("attach_task_to_objective", {
+            task_id: newTask.id,
+            objective_id: taskData.objectiveId,
+          })
+        }
       }
     } catch (e) {
       console.error("Erro ao criar no backend:", e)
@@ -699,42 +668,84 @@ export function useDashboard() {
     }
   }
 
+  const handleSetDefaultCategory = (categoryId: string) => {
+    setDefaultCategoryIdState(categoryId)
+    localStorage.setItem("rumo_default_category", categoryId)
+  }
+
+  const handleRescheduleToday = async (taskId: string) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, startDate: today, endDate: today } : t))
+    try {
+      if (navigator.onLine) {
+        await api.tasks.update(taskId, { startDate: today, endDate: today })
+      } else {
+        api.sync.push("update_task", { id: taskId, start_date: today.toISOString().split("T")[0], end_date: today.toISOString().split("T")[0] })
+      }
+    } catch (e) {
+      api.sync.push("update_task", { id: taskId, start_date: today.toISOString().split("T")[0], end_date: today.toISOString().split("T")[0] })
+    }
+  }
+
+  const handleQuickAddTask = async (title: string) => {
+    const firstCategoryId = (defaultCategoryId || customCategories[0]?.id) ?? "others"
+    const now = new Date()
+    const pendingCount = tasks.filter(t => t.status === "pending").length
+
+    const newTask = {
+      id: crypto.randomUUID(),
+      title: title.trim(),
+      description: "",
+      status: "pending" as const,
+      order: pendingCount,
+      category: firstCategoryId,
+      estimatedTime: undefined,
+      elapsedTime: 0,
+      progress: 0,
+      startDate: now,
+      endDate: now,
+      isPeriodic: false,
+      expectedDifficulty: "medium" as const,
+      expectedSatisfaction: 3,
+    }
+
+    setTasks(prev => [...prev, newTask])
+
+    try {
+      if (navigator.onLine) {
+        const created = await api.tasks.create(newTask)
+        const parsed = parseTask(created)
+        setTasks(prev => prev.map(t => t.id === newTask.id ? parsed : t))
+      } else {
+        api.sync.push("create_task", newTask)
+      }
+    } catch (e) {
+      api.sync.push("create_task", newTask)
+    }
+  }
+
   return {
     mounted,
+    isLoading,
     router,
     tasks,
     completedTasks,
     currentUser,
-    activityData,
-    performanceData,
     activityCount,
-    fetchActivityData: debouncedFetchActivityData,
-    fetchPerformanceData: debouncedFetchPerformanceData,
     customCategories,
-    selectedTask,
-    detailModalOpen,
-    setDetailModalOpen,
-    newTaskModalOpen,
-    setNewTaskModalOpen,
-    handleOpenNewTaskModal,
-    completionModalOpen,
-    setCompletionModalOpen,
-    categoryManagerOpen,
-    setCategoryManagerOpen,
-    showCategoryWarning,
-    setShowCategoryWarning,
-    taskToComplete,
-    taskToEdit,
-    setTaskToEdit,
-    handleEditTask,
+    ...modals,
     handleLogout,
-    handleViewDetails,
     handleStartTask,
     handlePauseTask,
     handleCompleteTask,
     handleNextStep,
     handleCompletionSubmit,
     handleReorderKanban,
+    handleReorderUpcoming,
+    handleRescheduleToday,
+    handleSetDefaultCategory,
+    defaultCategoryId,
     handleDeleteTask,
     handleRevertToPending,
     handleRepeatTask,
@@ -744,6 +755,7 @@ export function useDashboard() {
     handleAddSubtask,
     handleDeleteSubtask,
     handleClearAll,
+    handleQuickAddTask,
   }
 }
 

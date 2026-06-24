@@ -2,12 +2,13 @@
 
 import type { Task, CustomCategory, ActivityRecord } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost/api/v1";
+const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost/api/v1";
 
 async function getAuthHeaders() {
-  const token = localStorage.getItem("auth_token");
+  const token = localStorage.getItem("token");
   return {
     "Content-Type": "application/json",
+    "Accept": "application/json",
     "Authorization": `Bearer ${token}`,
   };
 }
@@ -18,80 +19,70 @@ async function ensureSync() {
   }
 }
 
+// Declarative field name overrides — keeps business rules visible and separate
+// from the generic camelCase ↔ snake_case transformation below.
+const CAMEL_TO_SNAKE: Record<string, string> = {
+  category:   "category_id",
+  categoryId: "category_id",
+}
+const SNAKE_TO_CAMEL: Record<string, string> = {
+  category_id: "category",
+}
+
 function toSnakeCase(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(v => toSnakeCase(v));
-  } else if (obj instanceof Date) {
-    return obj.toISOString();
-  } else if (obj !== null && typeof obj === 'object') {
-    // Se for um objeto mas não um literal (ex: ArrayBuffer, etc), retorna como está
-    if (obj.constructor !== Object && !Array.isArray(obj)) return obj;
-
-    const result: any = {};
+  if (Array.isArray(obj)) return obj.map(toSnakeCase)
+  if (obj instanceof Date) return obj.toISOString()
+  if (obj !== null && typeof obj === "object" && obj.constructor === Object) {
+    const result: any = {}
     for (const key in obj) {
-      let snakeKey = key.replace(/([A-Z])/g, "_$1").toLowerCase();
-      let value = obj[key];
-
-      // Mapeamentos específicos e garantias para Categoria
-      if (key === "category" || key === "categoryId") {
-        snakeKey = "category_id";
-        // Se por algum motivo o front passar o objeto da categoria, pegamos o ID
-        if (value && typeof value === 'object' && value.id) {
-          value = value.id;
-        }
+      // Structural transform: periodicInterval object → two flat fields
+      if (key === "periodicInterval" && obj[key]) {
+        result["periodic_value"] = obj[key].value
+        result["periodic_unit"] = obj[key].unit
+        continue
       }
-      
-      if (key === "periodicInterval" && value) {
-        result["periodic_value"] = value.value;
-        result["periodic_unit"] = value.unit;
-        continue;
+      // Unwrap category objects to their ID string
+      let value = obj[key]
+      if ((key === "category" || key === "categoryId") && value && typeof value === "object" && value.id) {
+        value = value.id
       }
-
-      result[snakeKey] = toSnakeCase(value);
+      // activeStartedAt is stored as ms timestamp in frontend state — convert to ISO string for the API
+      if (key === "activeStartedAt" && typeof value === "number") {
+        value = new Date(value).toISOString()
+      }
+      const snakeKey = CAMEL_TO_SNAKE[key] ?? key.replace(/([A-Z])/g, "_$1").toLowerCase()
+      result[snakeKey] = toSnakeCase(value)
     }
-    return result;
+    return result
   }
-  return obj;
+  return obj
 }
 
 function toCamelCase(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(v => toCamelCase(v));
-  } else if (obj !== null && typeof obj === 'object' && obj.constructor === Object) {
-    const result: any = {};
+  if (Array.isArray(obj)) return obj.map(toCamelCase)
+  if (obj !== null && typeof obj === "object" && obj.constructor === Object) {
+    const result: any = {}
     for (const key in obj) {
-      let camelKey = key.replace(/(_[a-z])/g, (group) =>
-        group.toUpperCase().replace("_", "")
-      );
-      let value = obj[key];
-
-      // Mapeamentos específicos
-      if (key === "category_id") camelKey = "category";
-      if (key === "periodic_value" && value !== undefined) {
-          result["periodicInterval"] = {
-              ...result["periodicInterval"],
-              value: value
-          };
-          continue;
+      // Structural transform: two flat fields → periodicInterval object
+      if (key === "periodic_value" && obj[key] !== undefined) {
+        result["periodicInterval"] = { ...result["periodicInterval"], value: obj[key] }
+        continue
       }
-      if (key === "periodic_unit" && value !== undefined) {
-          result["periodicInterval"] = {
-              ...result["periodicInterval"],
-              unit: value
-          };
-          continue;
+      if (key === "periodic_unit" && obj[key] !== undefined) {
+        result["periodicInterval"] = { ...result["periodicInterval"], unit: obj[key] }
+        continue
       }
-
-      result[camelKey] = toCamelCase(value);
+      const camelKey = SNAKE_TO_CAMEL[key] ?? key.replace(/(_[a-z])/g, g => g[1].toUpperCase())
+      result[camelKey] = toCamelCase(obj[key])
     }
-    return result;
+    return result
   }
-  return obj;
+  return obj
 }
 
 async function request(path: string, options: RequestInit = {}) {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${NEXT_PUBLIC_API_URL}${path}`, {
     ...options,
     credentials: 'include',
     headers: {
@@ -101,9 +92,10 @@ async function request(path: string, options: RequestInit = {}) {
   });
 
   if (response.status === 401) {
-    localStorage.removeItem("auth_token");
+    localStorage.removeItem("token");
     localStorage.removeItem("current_user");
     if (typeof window !== "undefined") {
+      document.cookie = "token=; path=/; max-age=0; SameSite=Lax";
       window.location.href = "/login";
     }
     throw new Error("Sessão expirada. Por favor, faça login novamente.");
@@ -115,19 +107,20 @@ async function request(path: string, options: RequestInit = {}) {
 export const api = {
   auth: {
     async login(credentials: any) {
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const response = await fetch(`${NEXT_PUBLIC_API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
       });
       if (!response.ok) throw new Error("Credenciais inválidas");
       const data = await response.json();
-      localStorage.setItem("auth_token", data.access_token);
+      localStorage.setItem("token", data.token);
       localStorage.setItem("current_user", JSON.stringify(data.user));
+      document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
       return data;
     },
     async register(data: any) {
-      const response = await fetch(`${API_URL}/auth/register`, {
+      const response = await fetch(`${NEXT_PUBLIC_API_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -137,14 +130,14 @@ export const api = {
     },
     async logout() {
       await request("/auth/logout", { method: "POST" });
-      localStorage.removeItem("auth_token");
+      localStorage.removeItem("token");
       localStorage.removeItem("current_user");
+      document.cookie = "token=; path=/; max-age=0; SameSite=Lax";
     }
   },
 
   tasks: {
     async list(): Promise<{ tasks: Task[], categories: CustomCategory[], activityCount: number }> {
-      await ensureSync();
       const response = await request("/tasks");
       if (!response.ok) throw new Error("Erro ao carregar tarefas");
       const json = await response.json();
@@ -156,7 +149,6 @@ export const api = {
     },
 
     async history(page: number = 1): Promise<{ tasks: Task[], hasMore: boolean }> {
-      await ensureSync();
       const response = await request(`/tasks/history?page=${page}`);
       if (!response.ok) throw new Error("Erro ao carregar histórico");
       const json = await response.json();
@@ -206,6 +198,39 @@ export const api = {
     },
   },
 
+  objectives: {
+    async list(): Promise<any[]> {
+      const response = await request("/objectives")
+      if (!response.ok) throw new Error("Erro ao carregar objetivos")
+      const json = await response.json()
+      return toCamelCase(json)
+    },
+    async create(data: { title: string; description?: string; categoryId?: string; targetDate?: string }): Promise<any> {
+      const response = await request("/objectives", { method: "POST", body: JSON.stringify(toSnakeCase(data)) })
+      if (!response.ok) throw new Error("Erro ao criar objetivo")
+      return toCamelCase(await response.json())
+    },
+    async update(id: string, data: Partial<{ title: string; description: string; categoryId: string; targetDate: string; status: string }>): Promise<any> {
+      const response = await request(`/objectives/${id}`, { method: "PUT", body: JSON.stringify(toSnakeCase(data)) })
+      if (!response.ok) throw new Error("Erro ao atualizar objetivo")
+      return toCamelCase(await response.json())
+    },
+    async delete(id: string): Promise<void> {
+      const response = await request(`/objectives/${id}`, { method: "DELETE" })
+      if (!response.ok) throw new Error("Erro ao excluir objetivo")
+    },
+    async attachTask(objectiveId: string, taskId: string): Promise<any> {
+      const response = await request(`/objectives/${objectiveId}/tasks/${taskId}`, { method: "POST" })
+      if (!response.ok) throw new Error("Erro ao vincular tarefa")
+      return toCamelCase(await response.json())
+    },
+    async detachTask(objectiveId: string, taskId: string): Promise<any> {
+      const response = await request(`/objectives/${objectiveId}/tasks/${taskId}`, { method: "DELETE" })
+      if (!response.ok) throw new Error("Erro ao desvincular tarefa")
+      return toCamelCase(await response.json())
+    },
+  },
+
   categories: {
     async list(): Promise<CustomCategory[]> {
       await ensureSync();
@@ -226,6 +251,21 @@ export const api = {
       const json = await response.json();
       const data = json.data || json;
       return toCamelCase(data);
+    },
+
+    async update(id: string, data: Partial<Pick<CustomCategory, 'label' | 'color' | 'icon'>>): Promise<CustomCategory> {
+      const response = await request(`/categories/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(toSnakeCase(data)),
+      });
+      if (!response.ok) throw new Error("Erro ao atualizar categoria");
+      const json = await response.json();
+      return toCamelCase(json.data || json);
+    },
+
+    async delete(id: string): Promise<void> {
+      const response = await request(`/categories/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Erro ao excluir categoria");
     },
   },
 
@@ -290,10 +330,40 @@ export const api = {
           expectedDifficulty: item.expected_difficulty,
           actualDifficulty: item.actual_difficulty,
           expectedSatisfaction: item.expected_satisfaction,
-          actualSatisfaction: item.actual_satisfaction
+          actualSatisfaction: item.actual_satisfaction,
+          elapsedTime: item.elapsed_time,
+          isPeriodic: item.is_periodic,
         };
       });
-    }
+    },
+
+    async weeklyReview(week?: string): Promise<any> {
+      const query = week ? `?week=${encodeURIComponent(week)}` : ""
+      const response = await request(`/stats/weekly-review${query}`)
+      if (!response.ok) throw new Error("Erro ao carregar revisão semanal")
+      return toCamelCase(await response.json())
+    },
+
+    async estimationPatterns(params: { categoryId?: string; expectedDifficulty?: string } = {}): Promise<{
+      sampleSize: number
+      avgEstimatedSeconds: number
+      avgActualSeconds: number
+      biasPct: number
+    } | null> {
+      const query = new URLSearchParams()
+      if (params.categoryId) query.set("category_id", params.categoryId)
+      if (params.expectedDifficulty) query.set("expected_difficulty", params.expectedDifficulty)
+      const response = await request(`/stats/estimation-patterns?${query}`)
+      if (!response.ok) return null
+      const json = await response.json()
+      if (!json.sample_size) return null
+      return {
+        sampleSize: json.sample_size,
+        avgEstimatedSeconds: json.avg_estimated_seconds,
+        avgActualSeconds: json.avg_actual_seconds,
+        biasPct: json.bias_pct,
+      }
+    },
   },
 
   sync: {

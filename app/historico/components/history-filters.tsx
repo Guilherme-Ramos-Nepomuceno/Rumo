@@ -4,16 +4,16 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Filter } from "lucide-react"
-import { categoryConfig } from "@/lib/category-config"
-import type { Category } from "@/lib/types"
+import type { CustomCategory } from "@/lib/types"
 
 interface HistoryFiltersProps {
   searchTerm: string
   setSearchTerm: (v: string) => void
-  categoryFilter: Category | "all"
-  setCategoryFilter: (v: Category | "all") => void
+  categoryFilter: string | "all"
+  setCategoryFilter: (v: string | "all") => void
   sortBy: "date" | "duration" | "satisfaction"
   setSortBy: (v: "date" | "duration" | "satisfaction") => void
+  customCategories: CustomCategory[]
 }
 
 export function HistoryFilters({
@@ -22,7 +22,8 @@ export function HistoryFilters({
   categoryFilter,
   setCategoryFilter,
   sortBy,
-  setSortBy
+  setSortBy,
+  customCategories,
 }: HistoryFiltersProps) {
   return (
     <Card className="p-4">
@@ -38,16 +39,16 @@ export function HistoryFilters({
         </div>
 
         <div className="flex gap-3">
-          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as Category | "all")}>
+          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}>
             <SelectTrigger className="w-[180px]">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as categorias</SelectItem>
-              {Object.entries(categoryConfig).map(([key, config]) => (
-                <SelectItem key={key} value={key}>
-                  {config.label}
+              {customCategories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.label}
                 </SelectItem>
               ))}
             </SelectContent>

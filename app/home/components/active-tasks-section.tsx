@@ -10,7 +10,7 @@ interface ActiveTasksSectionProps {
   onViewDetails: (task: Task) => void
   onStartTask: (taskId: string) => void
   onPauseTask: (taskId: string, elapsedTime?: number) => void
-  onCompleteTask: (taskId: string) => void
+  onCompleteTask: (taskId: string, elapsedTime: number) => void
   onNextStep: (taskId: string) => void
   onReorder: (taskId: string, direction: "up" | "down", column: "paused" | "in-progress") => void
   onDragReorder: (taskId: string, newIndex: number, column: "paused" | "in-progress") => void
@@ -38,9 +38,6 @@ export function ActiveTasksSection({
 }: ActiveTasksSectionProps) {
   return (
     <section>
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-xl font-semibold text-foreground">Objetivos Ativos</h2>
-      </div>
       {(pausedTasks.length > 0 || inProgressTasks.length > 0) ? (
         <KanbanBoard
           pausedTasks={pausedTasks}

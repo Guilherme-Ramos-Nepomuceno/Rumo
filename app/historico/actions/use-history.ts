@@ -2,60 +2,47 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import type { Task, Category } from "@/lib/types"
-
-const MONTHS_LONG = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+import type { Task, CustomCategory } from "@/lib/types"
+import { MONTHS_LONG } from "@/lib/constants"
+import { formatDuration } from "@/lib/utils"
+import { parseTask } from "@/lib/task-utils"
 
 export function useHistory() {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
-  const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all")
+  const [categoryFilter, setCategoryFilter] = useState<string | "all">("all")
   const [sortBy, setSortBy] = useState<"date" | "duration" | "satisfaction">("date")
   const [mounted, setMounted] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [completedTasks, setCompletedTasks] = useState<Task[]>([])
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([])
 
   useEffect(() => {
     setMounted(true)
-    const token = localStorage.getItem("auth_token")
+    const token = localStorage.getItem("token")
     if (!token) {
       router.push("/login")
       return
     }
 
-    // Load from LocalStorage
     const storedCompleted = localStorage.getItem("rumo_completed_tasks")
     if (storedCompleted) {
-      const parsed = JSON.parse(storedCompleted).map((t: any) => ({
-        ...t,
-        startDate: new Date(t.startDate),
-        endDate: new Date(t.endDate),
-        createdAt: t.createdAt ? new Date(t.createdAt) : undefined,
-        completedAt: t.completedAt ? new Date(t.completedAt) : undefined,
-        subtasks: t.subtasks?.map((st: any) => ({
-          ...st,
-          completedAt: st.completedAt ? new Date(st.completedAt) : undefined,
-        })),
-      }))
-      setCompletedTasks(parsed)
+      setCompletedTasks(JSON.parse(storedCompleted).map(parseTask))
     } else {
       setCompletedTasks([])
     }
+    const storedCategories = localStorage.getItem("rumo_custom_categories")
+    if (storedCategories) setCustomCategories(JSON.parse(storedCategories))
+    setIsLoading(false)
   }, [router])
 
   const formatDate = (date: Date) => {
     const day = date.getDate()
-    const month = MONTHS_LONG[date.getMonth()]
+    const month = MONTHS_LONG[date.getMonth()].toLowerCase()
     const year = date.getFullYear()
     const hours = date.getHours().toString().padStart(2, "0")
     const minutes = date.getMinutes().toString().padStart(2, "0")
     return `${day} de ${month} de ${year} às ${hours}:${minutes}`
-  }
-
-  const formatDuration = (seconds: number) => {
-    const hrs = Math.floor(seconds / 3600)
-    const mins = Math.floor((seconds % 3600) / 60)
-    if (hrs > 0) return `${hrs}h ${mins}m`
-    return `${mins}m`
   }
 
   const handleRepeatTask = (task: Task) => {
@@ -64,7 +51,7 @@ export function useHistory() {
     
     const newTask: Task = {
       ...task,
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       status: "pending",
       progress: 0,
       elapsedTime: 0,
@@ -86,8 +73,7 @@ export function useHistory() {
       result = result.filter(
         (task) =>
           task.title.toLowerCase().includes(term) ||
-          task.description.toLowerCase().includes(term) ||
-          task.tags?.some((tag) => tag.toLowerCase().includes(term))
+          task.description.toLowerCase().includes(term)
       )
     }
 
@@ -117,7 +103,7 @@ export function useHistory() {
       if (!task.completedAt) return
       const month = task.completedAt.getMonth()
       const year = task.completedAt.getFullYear()
-      const key = `${MONTHS_LONG[month]} de ${year}`
+      const key = `${MONTHS_LONG[month].toLowerCase()} de ${year}`
       if (!groups[key]) groups[key] = []
       groups[key].push(task)
     })
@@ -134,6 +120,7 @@ export function useHistory() {
 
   return {
     mounted,
+    isLoading,
     searchTerm,
     setSearchTerm,
     categoryFilter,
@@ -144,6 +131,7 @@ export function useHistory() {
     stats,
     formatDate,
     formatDuration,
-    handleRepeatTask
+    handleRepeatTask,
+    customCategories,
   }
 }

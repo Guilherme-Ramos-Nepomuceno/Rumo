@@ -24,11 +24,12 @@ describe("HistoryList", () => {
 
   it("renders tasks grouped by month", () => {
     render(
-      <HistoryList 
-        tasksByMonth={mockTasksByMonth} 
+      <HistoryList
+        tasksByMonth={mockTasksByMonth}
         formatDate={mockFormatDate}
         formatDuration={mockFormatDuration}
         onRepeat={mockOnRepeat}
+        customCategories={[]}
       />
     )
 
@@ -38,11 +39,12 @@ describe("HistoryList", () => {
 
   it("renders empty state correctly", () => {
     render(
-      <HistoryList 
-        tasksByMonth={{}} 
+      <HistoryList
+        tasksByMonth={{}}
         formatDate={mockFormatDate}
         formatDuration={mockFormatDuration}
         onRepeat={mockOnRepeat}
+        customCategories={[]}
       />
     )
 

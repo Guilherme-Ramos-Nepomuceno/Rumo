@@ -1,40 +1,14 @@
 "use client"
 
 import { useState, useMemo, useCallback, memo, useEffect } from "react"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getActivityCount, getContributingCategories } from "@/lib/activity-data"
 import type { ActivityRecord, Category, CustomCategory, TimeView, Task } from "@/lib/types"
 import { ChevronLeft, ChevronRight, Clock, Check, ListTodo, Timer } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
-
-// Helper to format local date consistently as YYYY-MM-DD
-const getLocalDateString = (d: Date) => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const dayStr = String(d.getDate()).padStart(2, "0")
-  return `${y}-${m}-${dayStr}`
-}
-
-// Month names to avoid locale differences
-const MONTHS_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
-const MONTHS_LONG = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-]
-const WEEKDAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
+import { cn, getLocalDateString } from "@/lib/utils"
+import { MONTHS_SHORT, MONTHS_LONG, WEEKDAYS_SHORT } from "@/lib/constants"
 interface ActivityBlockTooltipContentProps {
   block: any
   customCategories: CustomCategory[]
@@ -503,10 +477,15 @@ function ActivityTrackerComponent({
   const getCategoryColor = useCallback((catId?: string) => {
     const id = catId || selectedCategory
     if (id === "all") return "var(--primary)"
-    
+
     const customMatch = customCategories.find(c => c.id === id)
-    if (customMatch) return customMatch.color
-    
+    if (customMatch) {
+      const color = customMatch.color
+      return /^(#[0-9a-f]{3,8}|rgb(a)?\([^)]*\)|hsl(a)?\([^)]*\)|[a-z]+)$/i.test(color)
+        ? color
+        : "var(--primary)"
+    }
+
     return `var(--category-${id})`
   }, [selectedCategory, customCategories])
 
@@ -719,7 +698,7 @@ function ActivityTrackerComponent({
   }, [])
 
   return (
-    <Card className="p-6">
+    <div>
       <div className="space-y-6">
         
         {/* Simple & Clean Header */}
@@ -1141,7 +1120,7 @@ function ActivityTrackerComponent({
           </div>
         )}
       </div>
-    </Card>
+    </div>
   )
 }
 

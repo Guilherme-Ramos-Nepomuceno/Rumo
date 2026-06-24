@@ -27,7 +27,7 @@ export function useLogin() {
 
   useEffect(() => {
     setMounted(true)
-    const token = localStorage.getItem("auth_token")
+    const token = localStorage.getItem("token")
     if (token) {
       router.push("/home")
     }

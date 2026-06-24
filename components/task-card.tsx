@@ -8,7 +8,8 @@ import { Progress } from "@/components/ui/progress"
 import { Calendar, Clock, Play, Pause, Square, Trash2, Info, Eye } from "lucide-react"
 import { Task, CustomCategory } from "@/lib/types"
 import { motion, AnimatePresence, Variants } from "framer-motion"
-import { cn } from "@/lib/utils"
+import { cn, isValidCSSColor } from "@/lib/utils"
+import { resolveCategoryConfig } from "@/lib/task-utils"
 import * as LucideIcons from "lucide-react"
 
 interface TaskCardProps {
@@ -38,38 +39,12 @@ export function TaskCard({
   const [isExpanded, setIsExpanded] = useState(false)
   const isSameDay = task.startDate.toDateString() === task.endDate.toDateString()
 
-  // Resolve category ID and label
-  const categoryId = typeof task.category === "object" && task.category !== null 
-    ? (task.category as any).id 
-    : task.category
-  
-  const categoryLabel = typeof task.category === "object" && task.category !== null
-    ? (task.category as any).label
+  const categoryId = typeof task.category === "object" && task.category !== null
+    ? (task.category as any).id
     : task.category
 
-  // Prioritize custom categories from backend
-  const customMatch = customCategories.find((c) => c.id === categoryId)
-  let config: any = null
-  let isCustom = false
-
-  if (customMatch) {
-    isCustom = true
-    config = {
-      id: customMatch.id,
-      label: customMatch.label,
-      icon: (LucideIcons as any)[customMatch.icon] || LucideIcons.Circle,
-      color: customMatch.color,
-    }
-  } else {
-    // Fallback for system categories or others
-    config = {
-      label: categoryLabel || "Outros",
-      icon: LucideIcons.Circle,
-      color: "#94a3b8", // slate-400
-    }
-  }
-
-  const IconComponent = config.icon || LucideIcons.Circle
+  const resolved = resolveCategoryConfig(categoryId, customCategories)
+  const IconComponent = (LucideIcons as any)[resolved.iconName] || LucideIcons.Circle
 
   // Items appear ONE BY ONE after card finishes opening
   // delayChildren = height animation duration (0.35s)
@@ -114,31 +89,50 @@ export function TaskCard({
               onClick={toggleExpand}
             >
               <div
-                className={cn(
-                  "p-2 rounded-xl text-white shrink-0 shadow-sm",
-                  !isCustom && config.color
-                )}
-                style={isCustom ? { backgroundColor: config.color } : undefined}
+                className="p-2 rounded-xl text-white shrink-0 shadow-sm"
+                style={resolved.isCustom && isValidCSSColor(resolved.color) ? { backgroundColor: resolved.color } : undefined}
               >
                 <IconComponent className="w-4 h-4" />
               </div>
-              <div className="min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-3">
-                <h3 className="font-bold text-sm sm:text-base line-clamp-1 text-foreground leading-none">
-                  {task.title}
-                </h3>
-                <div className="flex items-center gap-2 mt-1.5 sm:mt-0 flex-wrap">
-                  <Badge
-                    variant="secondary"
-                    className="text-[9px] h-4 px-1.5 font-black uppercase tracking-wider bg-secondary/80 text-secondary-foreground"
-                  >
-                    {config.label}
-                  </Badge>
-                  {task.estimatedTime && (
-                    <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
-                      {Math.floor(task.estimatedTime / 3600)}h{" "}
-                      {Math.floor((task.estimatedTime % 3600) / 60)}m
-                    </span>
-                  )}
+              <div className="min-w-0 flex-1">
+                {/* Título + nome da categoria ao lado */}
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <h3 className="font-bold text-sm sm:text-base line-clamp-1 text-foreground leading-none">
+                    {task.title}
+                  </h3>
+                  <span className="text-[11px] text-muted-foreground shrink-0 leading-none">
+                    {resolved.label}
+                  </span>
+                </div>
+                {/* Linha de badges + tempo */}
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  {(() => {
+                    const now = new Date(); now.setHours(0, 0, 0, 0)
+                    const end = new Date(task.endDate); end.setHours(0, 0, 0, 0)
+                    if (end < now) return (
+                      <Badge className="text-[9px] h-4 px-1.5 bg-destructive/15 text-destructive border border-destructive/30 font-semibold">
+                        Atrasada
+                      </Badge>
+                    )
+                    if (end.getTime() === now.getTime()) return (
+                      <Badge className="text-[9px] h-4 px-1.5 bg-amber-500/15 text-amber-600 border border-amber-500/30 font-semibold">
+                        Vence hoje
+                      </Badge>
+                    )
+                    return null
+                  })()}
+                  {(() => {
+                    // Usa estimatedTime, cai para elapsedTime, mínimo "0m"
+                    const secs = task.estimatedTime || task.elapsedTime || 0
+                    const hrs  = Math.floor(secs / 3600)
+                    const mins = Math.floor((secs % 3600) / 60)
+                    const label = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`
+                    return (
+                      <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
+                        {label}
+                      </span>
+                    )
+                  })()}
                 </div>
               </div>
             </div>
@@ -223,6 +217,16 @@ export function TaskCard({
                   exit="exit"
                   className="mt-5 space-y-4"
                 >
+
+                  {/* 0 — Category badge (desce para o bloco expandido) */}
+                  <motion.div variants={itemVariants}>
+                    <Badge
+                      variant="secondary"
+                      className="text-[9px] h-4 px-1.5 font-black uppercase tracking-wider bg-secondary/80 text-secondary-foreground"
+                    >
+                      {resolved.label}
+                    </Badge>
+                  </motion.div>
 
                   {/* 1 — Description */}
                   {task.description && (

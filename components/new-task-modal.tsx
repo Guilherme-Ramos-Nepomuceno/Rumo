@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import type { Category, Subtask, CustomCategory, Task } from "@/lib/types"
+import { EstimationHint } from "@/components/estimation-hint"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import * as Icons from "lucide-react"
@@ -293,6 +294,8 @@ function TimePicker({ value, onChange }: { value: string; onChange: (val: string
 export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = [], taskToEdit = null }: NewTaskModalProps) {
   const [isPeriodic, setIsPeriodic] = useState(false)
   const [category, setCategory] = useState<Category>(customCategories[0]?.id || "")
+  const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>("none")
+  const [objectives, setObjectives] = useState<{ id: string; title: string; status: string }[]>([])
 
   // Controlled states for iOS-style pickers
   const [startDate, setStartDate] = useState<Date | undefined>(new Date())
@@ -301,6 +304,18 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
   const [endTime, setEndTime] = useState<string>("18:00")
   const [satisfaction, setSatisfaction] = useState<number>(3)
 
+
+  // Load active objectives when modal opens
+  useEffect(() => {
+    if (open) {
+      import("@/lib/api").then(({ api }) => {
+        api.objectives.list()
+          .then((list: any[]) => setObjectives(list.filter((o: any) => o.status === 'active')))
+          .catch(() => {})
+      })
+      setSelectedObjectiveId("none")
+    }
+  }, [open])
 
   // Sync state reset when modal opens/closes or taskToEdit changes
   useEffect(() => {
@@ -415,6 +430,7 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
       estimatedTime: totalEstimatedTime,
       currentSubtaskIndex: formattedSubtasks.length > 0 ? 0 : undefined,
       isPeriodic: isPeriodic,
+      objectiveId: selectedObjectiveId !== "none" ? selectedObjectiveId : undefined,
     })
 
     // Reset form
@@ -572,6 +588,24 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
                 </Select>
               </div>
 
+              {/* Objetivo Row — só mostra se houver objetivos ativos */}
+              {objectives.length > 0 && (
+                <div className="flex items-center justify-between p-3.5 bg-card/45">
+                  <span className="text-sm font-medium text-foreground">Objetivo</span>
+                  <Select value={selectedObjectiveId} onValueChange={setSelectedObjectiveId}>
+                    <SelectTrigger className="w-47.5 h-9 text-xs border border-border/40 bg-secondary/40 rounded-lg hover:bg-secondary/60 transition-colors">
+                      <SelectValue placeholder="Nenhum" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {objectives.map(o => (
+                        <SelectItem key={o.id} value={o.id}>{o.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Dificuldade Esperada Row */}
               <div className="flex items-center justify-between p-3.5 bg-card/45">
                 <span className="text-sm font-medium text-foreground">Dificuldade Esperada</span>
@@ -694,6 +728,10 @@ export function NewTaskModal({ open, onOpenChange, onSubmit, customCategories = 
                 </div>
               </div>
             </div>
+            <EstimationHint
+              categoryId={category as string}
+              estimatedSeconds={estimatedHours * 3600 + estimatedMinutes * 60}
+            />
           </div>
 
           {/* Seção 5: Subtarefas */}
