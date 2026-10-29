@@ -83,7 +83,7 @@ graph TD
 | Styling | Tailwind CSS 4, Radix UI |
 | Animations | Framer Motion |
 | Charts | Recharts |
-| Forms | React Hook Form + Zod |
+| Forms | React Hook Form |
 | Backend | Laravel 11, PostgreSQL |
 | Auth | Laravel Sanctum |
 

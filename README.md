@@ -9,7 +9,7 @@
 
 **Rumo** é uma plataforma de produtividade focada em transparência e progresso real. A interface reativa permite gerenciar objetivos, tarefas ativas (Kanban) e acompanhar a análise de desempenho em tempo real.
 
-> **Status:** o app não está publicado no momento. Para usá-lo, rode o projeto localmente seguindo as instruções abaixo.
+> **Status:** o front-end tem apenas um deploy de testes, de acesso restrito; o app ainda não está publicado para uso. Para usá-lo, rode o projeto localmente seguindo as instruções abaixo.
 
 ---
 
@@ -104,7 +104,7 @@ Documentação específica de cada módulo principal:
 - **Base**: Next.js 16, React 19, TypeScript.
 - **Interface**: Tailwind CSS 4, Radix UI, Framer Motion (transições fluidas).
 - **Gráficos**: Recharts.
-- **Validação**: Zod + React Hook Form.
+- **Formulários**: React Hook Form.
 - **Testes**: Vitest + Testing Library.
 
 ---
