@@ -27,3 +27,6 @@ yarn-error.log*
 next-env.d.ts
 # anotações pessoais de deploy (não versionar)
 DEPLOY.md
+
+# resultados de testes gerados localmente
+test-results.json
