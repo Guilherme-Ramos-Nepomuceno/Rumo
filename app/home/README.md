@@ -10,20 +10,20 @@ Este módulo é composto por uma orquestração de componentes reativos que se c
 
 ### Componentes Principais
 
-1. **[KanbanBoard](./components/kanban-board.tsx)**:
+1. **[KanbanBoard](../../components/kanban-board.tsx)**:
    - Gerencia os estados `paused` (Em Pausa) e `in-progress` (Em Andamento).
    - Suporta **Drag-and-drop** e reordenação vertical manual.
    - Ações: Pausar, Continuar, Concluir, Reverter para Próximos e Excluir.
 
-2. **[TaskCard](./components/task-card.tsx)**:
+2. **[TaskCard](../../components/task-card.tsx)**:
    - Componente visual de alta fidelidade com estados expandido/colapsado.
    - Utiliza **Framer Motion** para animações em cascata (staggered animations) com delay de 0.2s.
 
-3. **[SummarySection](./components/summary-section.tsx)**:
+3. **[SummarySection](../../components/summary-section.tsx)**:
    - Exibe o progresso diário e semanal através de métricas de completude.
    - Lista dinâmica de categorias com animações fluidas de entrada e saída.
 
-4. **[ActivityTracker](./components/activity-tracker.tsx)**:
+4. **[ActivityTracker](../../components/activity-tracker.tsx)**:
    - Reconstruído no visual exato do **GitHub Contribution Graph** (7 linhas representativas dos dias da semana de Domingo a Sábado e colunas roláveis que representam as semanas).
    - Apresenta um **Painel de Estatísticas Premium** (Streak de consistência, Média Diária, Total Concluído e Dia Mais Produtivo).
    - Possui micro-animações de escala progressiva e sombra brilhante com a cor da categoria ao passar o mouse.
@@ -32,7 +32,7 @@ Este módulo é composto por uma orquestração de componentes reativos que se c
    - Fornece um tooltip unificado de alta fidelidade detalhando todas as atividades concluídas (com duração real gasta) e planejadas (com horários agendados e status ativo) para aquele bloco/dia específico.
    - Suporta visualizações adicionais de **Dia** (linha do tempo de 24h) e **Mês** (grade de calendário mensal expandida com numeração).
 
-5. **[PerformanceChart](./components/performance-chart.tsx)**:
+5. **[PerformanceChart](../../components/performance-chart.tsx)**:
    - **Upgrade Estatístico Metacognitivo**: Transforma a visualização simples de performance em uma ferramenta de calibração de dissonância cognitiva.
    - **Evita Cancelamento de Desvios (Statistical Masking)**: No modo agrupado diário, o gráfico calcula dinamicamente o **Desvio Absoluto Médio (MAD)** de cada tarefa para exibir na tooltip, impedindo que desvios opostos no mesmo dia se anulem e mascarem a autopercepção real.
    - **Visão por Tarefa (Individual)**: Adicionado um seletor de agrupamento que permite visualizar cada tarefa cronologicamente individual no eixo X, eliminando qualquer agregação.
@@ -47,7 +47,7 @@ Este módulo é composto por uma orquestração de componentes reativos que se c
 6. **Task Time Tags / Badges**:
    - Integrado tags/badges elegantes de horário agendado (`Clock` icon) nos cabeçalhos e painéis do `TaskDetailModal`, `TaskCard` e `KanbanCard` para que o período planejado esteja visível imediatamente de qualquer tela.
 
-7. **[NewTaskModal](./components/new-task-modal.tsx)**:
+7. **[NewTaskModal](../../components/new-task-modal.tsx)**:
    - Modal premium estilizado no padrão **iOS Notes** para criação de novas metas.
    - Substitui seletores brutos de data por um calendário Radix `Popover` + `Calendar` (`ptBR`).
    - Apresenta o **Cupertino Scroll Wheel TimePicker** (spinner de relógio 3D que simula perfeitamente o visual e a rolagem cilíndrica do iPhone com efeitos de perspectiva realistas e efeito snap de rolagem).

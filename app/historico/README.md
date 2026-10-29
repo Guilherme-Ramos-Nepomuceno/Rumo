@@ -10,7 +10,7 @@ O histórico é alimentado exclusivamente pelo estado de `completedTasks`, que p
 
 ### Componentes Principais
 
-1. **[CompletedTasksSection](./components/completed-tasks-section.tsx)**:
+1. **[CompletedTasksSection](../../components/completed-tasks-section.tsx)**:
    - Componente de visualização em lista.
    - Exibe metadados de conclusão: Satisfação (Estrelas), Dificuldade e Tempo Decorrido.
    - Ação: **Repetir Tarefa** (ícone `RotateCcw`).
