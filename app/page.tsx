@@ -12,7 +12,7 @@ export default function RootPage() {
     setMounted(true)
     
     // Check for auth token in localStorage
-    const token = localStorage.getItem("auth_token")
+    const token = localStorage.getItem("token")
     
     if (token) {
       // User is authenticated, redirect to home

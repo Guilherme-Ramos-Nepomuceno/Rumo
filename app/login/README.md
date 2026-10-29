@@ -11,7 +11,7 @@ A autenticação é propositalmente leve, utilizando um sistema de **Token Fake*
 ### Fluxo de Autenticação
 
 1. O componente de Login solicita as credenciais (Mock).
-2. Na aprovação, um `auth_token` é gerado e injetado no armazenamento local.
+2. Na aprovação, o token retornado pela API é gravado no armazenamento local na chave `token`.
 3. O `RootPage` (/) detecta a presença desse token no `useEffect` e redireciona automaticamente para o Dashboard (`/home`).
 
 ---
@@ -29,7 +29,7 @@ O login interage diretamente com o roteador do Next.js:
 
 | Trigger | Efeito | Observação |
 |---------|--------|------------|
-| `router.push("/home")` | Redirecionamento após login | Ocorre se `auth_token` for válido. |
+| `router.push("/home")` | Redirecionamento após login | Ocorre se o `token` estiver presente no `localStorage`. |
 | `router.push("/login")` | Redirecionamento de proteção | Bloqueia o acesso sem token. |
 
 ---
@@ -38,7 +38,7 @@ O login interage diretamente com o roteador do Next.js:
 
 ```typescript
 useEffect(() => {
-  const token = localStorage.getItem("auth_token")
+  const token = localStorage.getItem("token")
   if (token) {
     router.push("/home")
   } else {
