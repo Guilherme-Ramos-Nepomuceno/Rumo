@@ -1,87 +1,111 @@
 # Rumo 🎯
 
-[![Status](https://img.shields.io/badge/Status-Development-blue.svg)]()
+[![Status](https://img.shields.io/badge/Status-Em%20desenvolvimento-blue.svg)]()
 [![React](https://img.shields.io/badge/React-19-blue.svg)]()
 [![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)]()
 [![Tailwind](https://img.shields.io/badge/Tailwind-4-38b2ac.svg)]()
 
 > "Direção clara, vida leve."
 
-**Rumo** é uma plataforma de produtividade de alta fidelidade focada em transparência e progresso real. O sistema utiliza uma interface premium e reativa para gerenciar objetivos, tarefas ativas (Kanban) e análise de desempenho em tempo real.
+**Rumo** é uma plataforma de produtividade focada em transparência e progresso real. A interface reativa permite gerenciar objetivos, tarefas ativas (Kanban) e acompanhar a análise de desempenho em tempo real.
+
+> **Status:** o app não está publicado no momento. Para usá-lo, rode o projeto localmente seguindo as instruções abaixo.
 
 ---
 
-## Quick Start
+## Screenshots
 
-Inicie o projeto localmente em menos de 2 minutos:
+> As imagens abaixo ficam em `docs/screenshots/` e serão adicionadas em breve.
+
+| Kanban | Dashboard | Objetivos |
+|--------|-----------|-----------|
+| ![Quadro Kanban de tarefas](./docs/screenshots/kanban.png) | ![Dashboard com métricas de desempenho](./docs/screenshots/dashboard.png) | ![Tela de objetivos](./docs/screenshots/objetivos.png) |
+
+---
+
+## Início rápido
+
+Rode o projeto localmente em menos de 2 minutos:
 
 ```bash
-# Clone e entre na pasta
+# Clone o repositório e entre na pasta
 # Instale as dependências
 npm install --legacy-peer-deps
 
-# Rode em modo desenvolvedor
+# Rode em modo de desenvolvimento
 npm run dev
 ```
 
-O projeto estará disponível em `http://localhost:3000`.
+O projeto ficará disponível em `http://localhost:3000`.
+
+### Testes
+
+```bash
+# Modo watch
+npm test
+
+# Execução única
+npm run test:run
+```
 
 ---
 
-## Architecture
+## Arquitetura
 
-A arquitetura do Rumo segue o padrão do Next.js App Router, com separação clara entre a lógica de persistência local e os componentes de interface.
+O Rumo segue o padrão do Next.js App Router, com separação clara entre roteamento, componentes de interface e a camada de comunicação com a API.
 
 ```mermaid
 graph TD
-    A[Root: /] --> B{Auth Check}
-    B -- Logado --> C[Home: /home]
-    B -- Não Logado --> D[Login: /login]
-    
+    A[Raiz: /] --> B{Verificação de login}
+    B -- Logado --> C[Início: /home]
+    B -- Não logado --> D[Login: /login]
+
     C --> C1[KanbanBoard]
     C --> C2[ActivityTracker]
     C --> C3[SummarySection]
     C --> C4[PerformanceChart]
-    
-    C --- E[(LocalStorage)]
-    F[Historico: /historico] --- E
-    
+
+    C --- E[lib/api.ts]
+    F[Histórico: /historico] --- E
+    E --- G[(API Laravel do Rumo)]
+
     subgraph "Camadas"
-        app[app/ - Roteamento]
-        components[components/ - UI Reutilizável]
-        lib[lib/ - Configs e MockData]
+        app[app/ - Roteamento e telas]
+        components[components/ - UI reutilizável]
+        lib[lib/ - API, tipos e utilitários]
     end
 ```
 
 ---
 
-## Environment Variables
+## Variáveis de ambiente
 
-O projeto utiliza integração com o backend de API Laravel para sincronização centralizada e offline-first.
+O front-end se integra à API Laravel do Rumo para sincronização centralizada, com suporte a uso offline.
 
-| Key | Description | Required | Default / Exemplo |
-|-----|-------------|----------|-------------------|
-| `NEXT_PUBLIC_API_URL` | URL base da API REST do Rumo | Sim | `http://localhost:8080/api/v1` |
+| Variável | Descrição | Obrigatória | Padrão / Exemplo |
+|----------|-----------|-------------|------------------|
+| `NEXT_PUBLIC_API_URL` | URL base da API REST do Rumo | Sim | Exemplo: `http://localhost:8080/api/v1` (padrão no código: `http://localhost/api/v1`) |
 | `NODE_ENV` | Ambiente de execução | Não | `development` / `production` |
 
 ---
 
-## Features
+## Funcionalidades
 
-Abaixo estão os links para as documentações específicas de cada módulo principal:
+Documentação específica de cada módulo principal:
 
-1. [🏠 Dashboard (Home)](./app/home/README.md) - Gestão ativa de tarefas e analytics.
-2. [📜 Histórico](./app/historico/README.md) - Retrospectiva de tarefas concluídas.
+1. [🏠 Dashboard (Início)](./app/home/README.md) - Gestão ativa de tarefas e análises.
+2. [📜 Histórico](./app/historico/README.md) - Retrospectiva das tarefas concluídas.
 3. [🔑 Login](./app/login/README.md) - Fluxo de autenticação e onboarding.
 
 ---
 
-### Stack Tecnológica
+## Stack tecnológica
 
-- **Core**: Next.js 16, React 19, TypeScript.
-- **UI/UX**: Tailwind CSS 4, Radix UI, Framer Motion (Transições Fluidas).
+- **Base**: Next.js 16, React 19, TypeScript.
+- **Interface**: Tailwind CSS 4, Radix UI, Framer Motion (transições fluidas).
 - **Gráficos**: Recharts.
 - **Validação**: Zod + React Hook Form.
+- **Testes**: Vitest + Testing Library.
 
 ---
-© 2026 Rumo Project.
+© 2026 Projeto Rumo.
